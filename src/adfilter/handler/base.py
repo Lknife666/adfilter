@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from ..constants import RuleSet
 from ..model import Rule
 
-_REGISTRY: dict[RuleSet, "Handler"] = {}
+_REGISTRY: dict[RuleSet, Handler] = {}
 
 
 class Handler(ABC):

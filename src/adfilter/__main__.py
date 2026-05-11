@@ -88,9 +88,7 @@ async def _run(config: AppConfig) -> None:
 def _accepts(out: OutputItem, rule) -> bool:  # noqa: ANN001
     if out.rule and rule.source_name not in out.rule:
         return False
-    if out.filter and rule.type not in out.filter:
-        return False
-    return True
+    return not (out.filter and rule.type not in out.filter)
 
 
 @app.command()

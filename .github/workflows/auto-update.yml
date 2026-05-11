@@ -73,5 +73,7 @@ jobs:
       - uses: astral-sh/setup-uv@v4
       - run: uv python install 3.14
       - run: uv sync
-      - run: uv run ruff check src/
-      - run: uv run python -c "import adfilter; print(adfilter.__version__)"
+      - name: Ruff check
+        run: uvx ruff check src/
+      - name: Import smoke test
+        run: uv run python -c "import adfilter; print(adfilter.__version__)"

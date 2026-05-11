@@ -30,7 +30,7 @@ class HttpFetcher(Fetcher):
                 async for line in self._stream(path, timeout, headers):
                     yield line
                 return
-            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            except (TimeoutError, aiohttp.ClientError) as e:
                 attempt += 1
                 if attempt > self._config.max_retries:
                     log.error("fetch %s failed after %d retries: %s", path, attempt - 1, e)
@@ -57,10 +57,7 @@ class HttpFetcher(Fetcher):
                 buf += chunk.decode(enc, errors="replace")
                 # splitlines(keepends=True) makes it easy to detect incomplete tails
                 parts = buf.splitlines(keepends=True)
-                if parts and not parts[-1].endswith(("\n", "\r")):
-                    buf = parts.pop()
-                else:
-                    buf = ""
+                buf = parts.pop() if parts and not parts[-1].endswith(("\n", "\r")) else ""
                 for p in parts:
                     yield p.rstrip("\r\n")
             if buf:

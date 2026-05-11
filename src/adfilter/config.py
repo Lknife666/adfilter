@@ -74,7 +74,7 @@ class InputConfig(BaseModel):
     rule: dict[str, list[InputItem]] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def flatten_rule_groups(self) -> "InputConfig":
+    def flatten_rule_groups(self) -> InputConfig:
         # merge "rule: {group: [items]}" into "input"
         for items in self.rule.values():
             for item in items:
@@ -128,7 +128,7 @@ class AppConfig(BaseSettings):
         return v
 
     @classmethod
-    def from_yaml(cls, path: str | Path) -> "AppConfig":
+    def from_yaml(cls, path: str | Path) -> AppConfig:
         p = Path(path)
         with p.open("r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
