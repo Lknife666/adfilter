@@ -67,6 +67,11 @@ class RuleSet(StrEnum):
     SMARTDNS = auto()
     CLASH = auto()
     HOSTS = auto()
+    # ── differentiators: formats the Java project does not emit ──
+    SURGE = auto()        # Surge domain-set
+    SINGBOX = auto()      # sing-box JSON ruleset
+    MIKROTIK = auto()     # MikroTik RouterOS /ip dns static script
+    UNBOUND = auto()      # Unbound local-zone
 
 
 class HandleType(StrEnum):

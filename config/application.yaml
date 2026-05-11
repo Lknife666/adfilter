@@ -1,5 +1,6 @@
 ##########################################
-## 默认订阅配置（可自行替换）。完整选项见 application-example.yaml
+## Default subscription — feel free to edit.
+## See application-example.yaml for every option.
 ##########################################
 application:
   config:
@@ -19,44 +20,50 @@ application:
         Description: ${desc}
         Homepage: https://github.com/Lknife666/adfilter
       files:
-        - name: easylist.txt
-          type: easylist
-          desc: "ADFS EasyList"
-          filter: [basic, wildcard, unknown]
+        # ── formats shared with the upstream Java project ──
+        - { name: easylist.txt,   type: easylist, desc: "ADFS EasyList",
+            filter: [basic, wildcard, unknown] }
+        - { name: dns.txt,        type: dns,      desc: "AdGuard Home DNS filter",
+            filter: [basic, wildcard, unknown] }
+        - { name: dnsmasq.conf,   type: dnsmasq,  desc: "dnsmasq address rules",
+            filter: [basic, wildcard] }
+        - { name: smartdns.conf,  type: smartdns, desc: "smartdns address rules",
+            filter: [basic, wildcard] }
+        - { name: clash.yaml,     type: clash,    desc: "Clash rule-provider",
+            filter: [basic, wildcard] }
+        - { name: hosts.txt,      type: hosts,    desc: "/etc/hosts",
+            filter: [basic] }
 
-        - name: dns.txt
-          type: dns
-          desc: "AdGuard Home DNS filter"
-          filter: [basic, wildcard, unknown]
-
-        - name: dnsmasq.conf
-          type: dnsmasq
-          desc: "dnsmasq address rules"
-          filter: [basic, wildcard]
-
-        - name: smartdns.conf
-          type: smartdns
-          desc: "smartdns address rules"
-          filter: [basic, wildcard]
-
-        - name: clash.yaml
-          type: clash
-          desc: "Clash domain rule-provider"
-          filter: [basic, wildcard]
-
-        - name: hosts.txt
-          type: hosts
-          desc: "/etc/hosts format"
-          filter: [basic]
+        # ── differentiators — new formats adfilter adds on top ──
+        - { name: surge.conf,     type: surge,    desc: "Surge domain-set",
+            filter: [basic, wildcard] }
+        - { name: singbox.json,   type: singbox,  desc: "sing-box rule-set",
+            filter: [basic, wildcard] }
+        - { name: mikrotik.rsc,   type: mikrotik, desc: "MikroTik RouterOS script",
+            filter: [basic] }
+        - { name: unbound.conf,   type: unbound,  desc: "Unbound local-zone",
+            filter: [basic, wildcard] }
 
     fetcher:
       http:
         timeout_seconds: 60
         max_retries: 3
+        max_concurrency: 8       # feature #12
+        cache_dir: .cache/http   # feature #11 — conditional-GET cache
 
     parser:
       alert_length: 6
       min_length: 4
       max_length: 1024
+      incremental_build: false   # feature #17
+      progress: false            # feature #18 — enable with --progress
+      json_logs: false           # feature #19 — enable with --json-logs
       dns_probe:
         enable: false
+
+    optimizer:                   # features #13–#16
+      enable: true
+      collapse_subdomains: true
+      drop_allow_shadowed_deny: true
+      min_source_votes: 1
+      normalize_idn: true
