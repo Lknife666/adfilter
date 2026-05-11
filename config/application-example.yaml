@@ -1,54 +1,76 @@
-# Example configuration.
-# Supported top-level shape:
-#   application:
-#     config:
-#       input: ...
-#       output: ...
-#       fetcher: ...
-#       parser: ...
-# Or simply the inner "config" object at the root.
-
+##########################################
+## !!! 示例配置，修改无效 !!!
+## !!! example config, modify invalid !!!
+##########################################
 application:
   config:
+
+    # ─── 规则源配置 ──────────────────────────────────────────────
+    # 使用前请删除下方示例配置
     input:
       rule:
-        mainland:
-          - name: anti-ad-easylist
-            type: easylist
-            path: https://anti-ad.net/easylist.txt
-          - name: ad-guard-base
-            type: dns
-            path: https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt
-      # or a flat input list:
+        group1:
+          - name: 'Subscription 1'           # 必要参数: 规则名称，请勿重复
+            path: 'https://example.org/rule.txt'  # 必要参数: 规则 url (http/https) 或 本地文件路径
+            type: easylist                   # 可选参数: 规则类型: easylist (默认)/dns/dnsmasq/smartdns/clash/hosts
+
+          - name: 'Subscription 2'
+            path: 'rule/local.txt'
+            type: hosts
+
+      # 也可以使用扁平列表：
       # input:
-      #   - name: my-hosts
-      #     type: hosts
-      #     path: ./my-hosts.txt
+      #   - name: ...
+      #     path: ...
 
+    # ─── 输出配置 ────────────────────────────────────────────────
     output:
-      path: ./dist-rules
-      file_header: |
-        Title: ${name}
-        Description: ${desc}
-        Type: ${type}
-        Total: ${total}
-        Generated: ${date}
-      files:
-        - name: combined.txt
-          type: dns
-          desc: AdGuardHome combined list
-          filter: []        # empty = accept all types
-          rule: []          # empty = accept all sources
-        - name: combined-easylist.txt
-          type: easylist
-          desc: ABP/uBlock compatible
-        - name: combined-hosts.txt
-          type: hosts
-          desc: /etc/hosts style
-        - name: combined-clash.yaml
-          type: clash
-          desc: Clash rule-provider (domain)
+      # 生成文件的输出目录
+      path: ./rule
 
+      # 文件头，会被自动注释并写到每个规则文件开头
+      # 占位符: ${name} ${type} ${desc} ${date} ${total}
+      file_header: |
+        ADFS AdBlock ${type}
+        Last Modified: ${date}
+        Total Size: ${total}
+        Description: ${desc}
+
+      # 每个类型只建议输出一个文件
+      files:
+        - name: easylist.txt
+          type: easylist
+          desc: 'ADFS EasyList'
+          file_header:              # 可选: 覆盖全局 file_header
+          filter:                   # 允许的规则类型: basic/wildcard/regex/unknown
+            - basic                 #   basic    - 普通域名规则
+            - wildcard              #   wildcard - 含通配符
+            - unknown               #   unknown  - 未识别规则（仅同源保留）
+          rule:                     # 可选: 限定此文件使用的规则源，空=全部
+            - Subscription 1
+            - Subscription 2
+
+        - name: dns.txt
+          type: dns
+          filter: [basic, wildcard]
+
+        - name: dnsmasq.conf
+          type: dnsmasq
+          filter: [basic, wildcard]
+
+        - name: smartdns.conf
+          type: smartdns
+          filter: [basic, wildcard]
+
+        - name: clash.yaml
+          type: clash
+          filter: [basic, wildcard]
+
+        - name: hosts.txt
+          type: hosts
+          filter: [basic]
+
+    # ─── 抓取器 ──────────────────────────────────────────────────
     fetcher:
       local:
         encoding: utf-8
@@ -58,17 +80,26 @@ application:
         max_retries: 3
         user_agent: "adfilter/0.1"
 
+    # ─── 解析器 ──────────────────────────────────────────────────
     parser:
-      min_length: 4
-      max_length: 500
+      # 小于此长度的规则会输出警告
       alert_length: 6
+      # 小于/大于这两个值的规则会被认定为无效（0 或留空不限制）
+      min_length: 0
+      max_length: 1024
+
+      # 白名单: 命中 target 则丢弃（仅对可解析规则生效）
       excludes: []
+        # - "www.example.org"
+
+      # DNS 域名存在性探测 —— 启用后执行时间会显著变长
       dns_probe:
         enable: false
-        timeout_seconds: 5
-        cache_ttl_min_seconds: 60
+        timeout_seconds: 2
+        cache_ttl_min_seconds: 600
         cache_ttl_max_seconds: 86400
-        cache_negative_ttl_seconds: 30
+        cache_negative_ttl_seconds: 300
         provider:
-          - host: 1.1.1.1
-          - host: 8.8.8.8
+          - host: 223.5.5.5
+            port: 53
+          - host: 114.114.114.114

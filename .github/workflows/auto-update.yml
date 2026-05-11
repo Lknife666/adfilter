@@ -1,28 +1,54 @@
-name: Auto update rule lists
+name: Update Filters
 
 on:
   schedule:
-    # 02:00 UTC every day
-    - cron: "0 2 * * *"
+    # every 8 hours, like the original project
+    - cron: "0 */8 * * *"
   workflow_dispatch:
+    inputs:
+      release-branch:
+        description: "Branch to publish generated rule files to"
+        required: false
+        default: "release"
+        type: string
   push:
     branches: [main]
-    paths:
-      - "src/**"
-      - "config/**"
-      - "pyproject.toml"
-      - ".github/workflows/auto-update.yml"
+    paths-ignore:
+      - "README.md"
+      - "LICENSE"
+      - ".devcontainer/**"
+
+env:
+  TZ: Asia/Shanghai
+  PYTHON_VERSION: "3.14"
 
 permissions:
   contents: write
 
 concurrency:
-  group: auto-update
+  group: update-filters
   cancel-in-progress: false
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+      - run: uv python install ${{ env.PYTHON_VERSION }}
+      - run: uv sync
+      - name: Ruff check
+        run: uvx ruff check src/
+      - name: Import smoke test
+        run: uv run python -c "import adfilter; print(adfilter.__version__)"
+
   build:
     runs-on: ubuntu-latest
+    needs: lint
+    outputs:
+      rule_count: ${{ steps.summary.outputs.rule_count }}
 
     steps:
       - name: Checkout
@@ -33,8 +59,8 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Set up Python 3.14
-        run: uv python install 3.14
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        run: uv python install ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
         run: uv sync --frozen --no-dev || uv sync --no-dev
@@ -45,35 +71,54 @@ jobs:
       - name: Build rule lists
         run: uv run adfilter run --config config/application.yaml --log-level INFO
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: dist-rules
-          path: dist-rules/
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Commit generated rules back (on main)
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+      - name: Summarise output
+        id: summary
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add dist-rules || true
-          if git diff --cached --quiet; then
-            echo "no changes"
-            exit 0
-          fi
-          git commit -m "chore: auto-update rule lists [skip ci]"
-          git push
+          echo "::group::Generated files"
+          ls -lh rule/
+          echo "::endgroup::"
+          total=$(wc -l rule/* 2>/dev/null | tail -n 1 | awk '{print $1}')
+          echo "rule_count=${total:-0}" >> "$GITHUB_OUTPUT"
 
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v4
-      - run: uv python install 3.14
-      - run: uv sync
-      - name: Ruff check
-        run: uvx ruff check src/
-      - name: Import smoke test
-        run: uv run python -c "import adfilter; print(adfilter.__version__)"
+      - name: Publish to release branch
+        # Only publish on scheduled runs, manual dispatch, or main-branch pushes.
+        if: >
+          github.event_name == 'schedule' ||
+          github.event_name == 'workflow_dispatch' ||
+          (github.event_name == 'push' && github.ref == 'refs/heads/main')
+        env:
+          RELEASE_BRANCH: ${{ github.event.inputs.release-branch || 'release' }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config --global user.name  "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Build an isolated publish workspace so the release branch contains
+          # ONLY the generated rule files, never the source tree.
+          pub=$(mktemp -d)
+          cp -r rule/. "$pub/"
+          date_now=$(date +'%Y-%m-%d %H:%M:%S %Z')
+          cat > "$pub/README.md" <<EOF
+          # adfilter — generated rule lists
+
+          Auto-generated at **${date_now}**.
+
+          | File | Format |
+          | --- | --- |
+          | \`easylist.txt\`  | EasyList / ABP |
+          | \`dns.txt\`       | AdGuard Home |
+          | \`dnsmasq.conf\`  | dnsmasq \`address=/…/ip\` |
+          | \`smartdns.conf\` | smartdns \`address /…/#\` |
+          | \`clash.yaml\`    | Clash domain rule-provider |
+          | \`hosts.txt\`     | /etc/hosts |
+
+          Total rules (all files): ${{ steps.summary.outputs.rule_count }}
+          EOF
+
+          cd "$pub"
+          git init -q -b "$RELEASE_BRANCH"
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git add -A
+          git commit -q -m "chore: auto release at ${date_now}"
+          git push -q --force origin "$RELEASE_BRANCH"

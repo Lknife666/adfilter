@@ -1,3 +1,6 @@
+##########################################
+## 默认订阅配置（可自行替换）。完整选项见 application-example.yaml
+##########################################
 application:
   config:
     input:
@@ -8,20 +11,43 @@ application:
             path: https://anti-ad.net/easylist.txt
 
     output:
-      path: ./dist-rules
+      path: ./rule
       file_header: |
-        Title: ${name}
+        ADFS AdBlock ${type}
+        Last Modified: ${date}
+        Total Size: ${total}
         Description: ${desc}
-        Type: ${type}
-        Total: ${total}
-        Generated: ${date}
+        Homepage: https://github.com/Lknife666/adfilter
       files:
-        - name: combined-dns.txt
+        - name: easylist.txt
+          type: easylist
+          desc: "ADFS EasyList"
+          filter: [basic, wildcard, unknown]
+
+        - name: dns.txt
           type: dns
-          desc: AdGuardHome combined list
-        - name: combined-hosts.txt
+          desc: "AdGuard Home DNS filter"
+          filter: [basic, wildcard, unknown]
+
+        - name: dnsmasq.conf
+          type: dnsmasq
+          desc: "dnsmasq address rules"
+          filter: [basic, wildcard]
+
+        - name: smartdns.conf
+          type: smartdns
+          desc: "smartdns address rules"
+          filter: [basic, wildcard]
+
+        - name: clash.yaml
+          type: clash
+          desc: "Clash domain rule-provider"
+          filter: [basic, wildcard]
+
+        - name: hosts.txt
           type: hosts
-          desc: hosts-format combined list
+          desc: "/etc/hosts format"
+          filter: [basic]
 
     fetcher:
       http:
@@ -29,7 +55,8 @@ application:
         max_retries: 3
 
     parser:
+      alert_length: 6
       min_length: 4
-      max_length: 500
+      max_length: 1024
       dns_probe:
         enable: false
