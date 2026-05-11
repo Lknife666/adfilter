@@ -13,12 +13,14 @@ from .fetcher import get_fetcher
 from .fetcher.factory import detect_handle_type
 from .handler import get_handler
 from .model import Rule, RuleType, Scope
+from .optimizer import normalize_idn
 
 log = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
 class SourceStats:
+    name: str = ""
     total: int = 0
     invalid: int = 0
     repeat: int = 0
@@ -31,11 +33,14 @@ class Parser:
     fetcher_config: FetcherConfig
     parser_config: ParserConfig
     prober: DnsProber | None = None
+    normalize_idn: bool = True
+    on_source_done: object | None = None  # callback(SourceStats) for progress UI
     _seen_hashes: set[int] = field(default_factory=set)
+    _seen_lock: object | None = field(default=None, init=False)
 
     async def handle(self, item: InputItem) -> AsyncIterator[Rule]:
         """Stream valid, de-duplicated rules from one input source."""
-        stats = SourceStats()
+        stats = SourceStats(name=item.name)
         started = time.monotonic()
 
         handler = get_handler(item.type)
@@ -51,10 +56,8 @@ class Parser:
 
             n = len(line)
             if self.parser_config.min_length > 0 and n < self.parser_config.min_length:
-                log.debug("[%s] too short: %s", item.name, line)
                 continue
             if self.parser_config.max_length > 0 and n > self.parser_config.max_length:
-                log.debug("[%s] too long: %s", item.name, line)
                 continue
 
             try:
@@ -66,13 +69,14 @@ class Parser:
             stats.total += 1
             if rule.is_empty():
                 stats.invalid += 1
-                log.debug("[%s] unparseable: %s", item.name, line)
                 continue
 
             rule.source_name = item.name
+            if self.normalize_idn and rule.target:
+                rule.target = normalize_idn(rule.target)
 
             if rule.target and rule.target in self.parser_config.excludes:
-                log.info("[%s] excluded: %s", item.name, rule.origin)
+                log.debug("[%s] excluded: %s", item.name, rule.origin)
                 continue
             if (
                 self.parser_config.alert_length > 0
@@ -96,7 +100,6 @@ class Parser:
                 exists = await self.prober.lookup(rule.target)
                 if not exists:
                     stats.invalid += 1
-                    log.info("[%s] dns-probe dropped: %s", item.name, rule.origin)
                     continue
 
             stats.effective += 1
@@ -107,3 +110,8 @@ class Parser:
             "[%s] done: total=%d effective=%d invalid=%d repeat=%d in %dms",
             item.name, stats.total, stats.effective, stats.invalid, stats.repeat, stats.elapsed_ms,
         )
+        if self.on_source_done:
+            try:
+                self.on_source_done(stats)  # type: ignore[misc]
+            except Exception:  # noqa: BLE001
+                pass

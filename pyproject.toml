@@ -33,4 +33,7 @@ target-version = "py314"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RET", "PL", "PT"]
-ignore = ["PLR0913", "PLR2004", "PLR0912", "PLR0915", "PLR0911", "E501"]
+ignore = ["PLR0913", "PLR2004", "PLR0912", "PLR0915", "PLR0911", "E501",
+          "PLC0415",  # lazy imports inside CLI commands are intentional
+          "E702",     # we use `;` for compact column definitions in CLI output
+          "SIM105"]   # try/except/pass is clearer than contextlib.suppress in hot paths

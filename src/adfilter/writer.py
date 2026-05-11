@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import logging
 import os
 import tempfile
@@ -11,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 
 from .config import OutputItem
-from .constants import Placeholder
+from .constants import Placeholder, RuleSet
 from .handler import get_handler
 
 log = logging.getLogger(__name__)
@@ -28,7 +30,6 @@ class OutputFile:
         if not batch:
             return
         data = "\n".join(batch) + "\n"
-        # serialise per-file writes; use a worker thread for the blocking I/O.
         async with self._lock:
             await asyncio.to_thread(self._write_text, data)
             self.count += len(batch)
@@ -40,7 +41,7 @@ class OutputFile:
 
 @dataclass(slots=True)
 class Batcher:
-    """Groups rules and flushes by size or timeout — per (output-file, source)."""
+    """Groups rules and flushes by size or timeout."""
 
     output: OutputFile
     max_size: int = 5000
@@ -114,20 +115,100 @@ async def finalise(out: OutputFile, target_dir: Path, parent_header: str) -> Pat
     def _merge() -> Path:
         target.parent.mkdir(parents=True, exist_ok=True)
         intermediate = target.with_suffix(target.suffix + ".intermediate")
-        with (
-            intermediate.open("w", encoding="utf-8", newline="") as w,
-            out.temp_path.open("r", encoding="utf-8", newline="") as r,
-        ):
-            if header:
-                w.write(header)
-            # copy in chunks
-            while True:
-                chunk = r.read(65536)
-                if not chunk:
-                    break
-                w.write(chunk)
+
+        # #10 — sing-box requires a JSON-wrapped output
+        if out.item.type is RuleSet.SINGBOX:
+            _write_singbox(intermediate, out.temp_path, header)
+        else:
+            _write_plain(intermediate, out.temp_path, header)
+
         intermediate.replace(target)
         out.temp_path.unlink(missing_ok=True)
+        # move the sidecar next to the target too
+        sidecar = intermediate.with_suffix(intermediate.suffix + ".about.txt")
+        if sidecar.exists():
+            sidecar.replace(target.with_suffix(target.suffix + ".about.txt"))
         return target
 
     return await asyncio.to_thread(_merge)
+
+
+def _write_plain(intermediate: Path, temp: Path, header: str) -> None:
+    with (
+        intermediate.open("w", encoding="utf-8", newline="") as w,
+        temp.open("r", encoding="utf-8", newline="") as r,
+    ):
+        if header:
+            w.write(header)
+        while True:
+            chunk = r.read(65536)
+            if not chunk:
+                break
+            w.write(chunk)
+
+
+def _write_singbox(intermediate: Path, temp: Path, header: str) -> None:
+    """Wrap a stream of JSON-line rule fragments into one valid sing-box ruleset."""
+    domains: list[str] = []
+    domain_suffixes: list[str] = []
+
+    with temp.open("r", encoding="utf-8") as r:
+        for raw in r:
+            line = raw.strip()
+            if not line or line.startswith("//") or line.startswith("#"):
+                continue
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if vs := obj.get("domain_suffix"):
+                domain_suffixes.extend(vs)
+            if vs := obj.get("domain"):
+                domains.extend(vs)
+
+    rules: list[dict[str, list[str]]] = []
+    if domain_suffixes:
+        rules.append({"domain_suffix": sorted(set(domain_suffixes))})
+    if domains:
+        rules.append({"domain": sorted(set(domains))})
+
+    ruleset = {"version": 2, "rules": rules}
+    payload = json.dumps(ruleset, ensure_ascii=False, indent=2)
+
+    with intermediate.open("w", encoding="utf-8") as w:
+        w.write(payload)
+        w.write("\n")
+
+    # sidecar so the human-readable header isn't lost
+    if header.strip():
+        intermediate.with_suffix(intermediate.suffix + ".about.txt").write_text(
+            header, encoding="utf-8"
+        )
+
+
+# ─────────────── #17 incremental-build fingerprint ───────────────
+def input_fingerprint(payload: list[tuple[str, str]]) -> str:
+    """Stable hash over (source-name, source-path) pairs."""
+    h = hashlib.sha256()
+    for name, path in sorted(payload):
+        h.update(name.encode("utf-8"))
+        h.update(b"\x00")
+        h.update(path.encode("utf-8"))
+        h.update(b"\x00")
+    return h.hexdigest()
+
+
+def load_build_cache(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def save_build_cache(path: Path, data: dict) -> None:
+    try:
+        path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    except OSError as e:
+        log.warning("could not persist build cache: %s", e)

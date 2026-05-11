@@ -24,11 +24,28 @@ class HttpFetcherConfig(BaseModel):
     max_retries: int = 3
     user_agent: str = "adfilter/0.1"
     headers: dict[str, str] = Field(default_factory=dict)
+    # #11 — conditional GET
+    cache_dir: str | None = None              # None disables on-disk cache
+    # #12 — concurrent fetches
+    max_concurrency: int = 8
 
 
 class FetcherConfig(BaseModel):
     local: LocalFetcherConfig = LocalFetcherConfig()
     http: HttpFetcherConfig = HttpFetcherConfig()
+
+
+# ────────────── optimizer (differentiators #13-#16) ──────────────
+class OptimizerConfig(BaseModel):
+    enable: bool = False
+    # #13
+    collapse_subdomains: bool = False
+    # #14
+    drop_allow_shadowed_deny: bool = False
+    # #15 — keep only rules observed in >=N sources (1 disables)
+    min_source_votes: int = 1
+    # #16
+    normalize_idn: bool = True
 
 
 # ────────────── parser ──────────────
@@ -52,6 +69,13 @@ class ParserConfig(BaseModel):
     alert_length: int = 0
     excludes: set[str] = Field(default_factory=set)
     dns_probe: DnsProbeConfig = DnsProbeConfig()
+    # #17 — skip the whole run when the input-hash matches last run's
+    incremental_build: bool = False
+    incremental_cache_file: str = ".adfilter-build.json"
+    # #18 — rich progress bar
+    progress: bool = False
+    # #19 — json-structured logs
+    json_logs: bool = False
 
 
 # ────────────── input ──────────────
@@ -119,6 +143,7 @@ class AppConfig(BaseSettings):
     output: OutputConfig = OutputConfig()
     fetcher: FetcherConfig = FetcherConfig()
     parser: ParserConfig = ParserConfig()
+    optimizer: OptimizerConfig = OptimizerConfig()
 
     @field_validator("output", mode="after")
     @classmethod
@@ -147,6 +172,7 @@ __all__ = [
     "InputConfig",
     "InputItem",
     "LocalFetcherConfig",
+    "OptimizerConfig",
     "OutputConfig",
     "OutputItem",
     "ParserConfig",
