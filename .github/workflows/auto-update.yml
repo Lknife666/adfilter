@@ -1,0 +1,77 @@
+name: Auto update rule lists
+
+on:
+  schedule:
+    # 02:00 UTC every day
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "config/**"
+      - "pyproject.toml"
+      - ".github/workflows/auto-update.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: auto-update
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Set up Python 3.14
+        run: uv python install 3.14
+
+      - name: Install dependencies
+        run: uv sync --frozen --no-dev || uv sync --no-dev
+
+      - name: Validate config
+        run: uv run adfilter validate --config config/application.yaml
+
+      - name: Build rule lists
+        run: uv run adfilter run --config config/application.yaml --log-level INFO
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-rules
+          path: dist-rules/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Commit generated rules back (on main)
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dist-rules || true
+          if git diff --cached --quiet; then
+            echo "no changes"
+            exit 0
+          fi
+          git commit -m "chore: auto-update rule lists [skip ci]"
+          git push
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+      - run: uv python install 3.14
+      - run: uv sync
+      - run: uv run ruff check src/
+      - run: uv run python -c "import adfilter; print(adfilter.__version__)"

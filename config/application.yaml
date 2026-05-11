@@ -1,0 +1,35 @@
+application:
+  config:
+    input:
+      rule:
+        default:
+          - name: anti-ad
+            type: easylist
+            path: https://anti-ad.net/easylist.txt
+
+    output:
+      path: ./dist-rules
+      file_header: |
+        Title: ${name}
+        Description: ${desc}
+        Type: ${type}
+        Total: ${total}
+        Generated: ${date}
+      files:
+        - name: combined-dns.txt
+          type: dns
+          desc: AdGuardHome combined list
+        - name: combined-hosts.txt
+          type: hosts
+          desc: hosts-format combined list
+
+    fetcher:
+      http:
+        timeout_seconds: 60
+        max_retries: 3
+
+    parser:
+      min_length: 4
+      max_length: 500
+      dns_probe:
+        enable: false

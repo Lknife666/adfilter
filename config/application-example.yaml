@@ -1,0 +1,74 @@
+# Example configuration.
+# Supported top-level shape:
+#   application:
+#     config:
+#       input: ...
+#       output: ...
+#       fetcher: ...
+#       parser: ...
+# Or simply the inner "config" object at the root.
+
+application:
+  config:
+    input:
+      rule:
+        mainland:
+          - name: anti-ad-easylist
+            type: easylist
+            path: https://anti-ad.net/easylist.txt
+          - name: ad-guard-base
+            type: dns
+            path: https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt
+      # or a flat input list:
+      # input:
+      #   - name: my-hosts
+      #     type: hosts
+      #     path: ./my-hosts.txt
+
+    output:
+      path: ./dist-rules
+      file_header: |
+        Title: ${name}
+        Description: ${desc}
+        Type: ${type}
+        Total: ${total}
+        Generated: ${date}
+      files:
+        - name: combined.txt
+          type: dns
+          desc: AdGuardHome combined list
+          filter: []        # empty = accept all types
+          rule: []          # empty = accept all sources
+        - name: combined-easylist.txt
+          type: easylist
+          desc: ABP/uBlock compatible
+        - name: combined-hosts.txt
+          type: hosts
+          desc: /etc/hosts style
+        - name: combined-clash.yaml
+          type: clash
+          desc: Clash rule-provider (domain)
+
+    fetcher:
+      local:
+        encoding: utf-8
+      http:
+        encoding: utf-8
+        timeout_seconds: 30
+        max_retries: 3
+        user_agent: "adfilter/0.1"
+
+    parser:
+      min_length: 4
+      max_length: 500
+      alert_length: 6
+      excludes: []
+      dns_probe:
+        enable: false
+        timeout_seconds: 5
+        cache_ttl_min_seconds: 60
+        cache_ttl_max_seconds: 86400
+        cache_negative_ttl_seconds: 30
+        provider:
+          - host: 1.1.1.1
+          - host: 8.8.8.8
