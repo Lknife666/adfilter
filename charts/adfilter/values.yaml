@@ -1,0 +1,89 @@
+# Default values for adfilter Helm chart
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/lknife666/adfilter
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 8787
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: adfilter.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+persistence:
+  enabled: true
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+  size: 1Gi
+  mountPath: /app/rule
+
+cronjob:
+  enabled: true
+  schedule: "0 */8 * * *"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+
+config:
+  application:
+    config:
+      input:
+        rule:
+          default:
+            - name: easylist
+              type: easylist
+              path: https://easylist.to/easylist/easylist.txt
+            - name: easyprivacy
+              type: easylist
+              path: https://easylist.to/easylist/easyprivacy.txt
+      output:
+        path: /app/rule
+        files:
+          - { name: dns.txt, type: dns }
+          - { name: clash.yaml, type: clash }
+          - { name: hosts.txt, type: hosts }
+      fetcher:
+        http:
+          timeout_seconds: 60
+          max_retries: 3
+          on_failure: cache_then_skip
+      optimizer:
+        enable: true
+        collapse_subdomains: true
+
+env: []
+  # - name: TZ
+  #   value: Asia/Shanghai
+  # - name: TELEGRAM_BOT_TOKEN
+  #   valueFrom:
+  #     secretKeyRef:
+  #       name: adfilter-secrets
+  #       key: telegram-bot-token
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

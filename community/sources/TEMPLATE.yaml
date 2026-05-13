@@ -1,0 +1,42 @@
+# Community Source Submission Template
+# ─────────────────────────────────────────────────────────────
+# To contribute a new rule source, copy this template and fill in the fields.
+# Submit a pull request to add your source to the community catalog.
+#
+# Required fields: name, url, type, author
+# Optional fields: description, homepage, license, categories, update_frequency
+
+# Unique identifier for this source (lowercase, hyphens only)
+name: my-filter-list
+
+# Direct URL to the raw filter list file
+url: https://example.com/filters.txt
+
+# Format type: easylist, dns, hosts, dnsmasq, clash, surge, etc.
+type: easylist
+
+# Author or maintainer name
+author: YourName
+
+# Brief description of what this list blocks
+description: "Blocks ads and trackers for example.com network"
+
+# Homepage or repository URL (for documentation)
+homepage: https://github.com/yourname/my-filter-list
+
+# License of the filter list
+license: MIT
+
+# Categories (one or more): ads, privacy, malware, annoyance, social, regional
+categories:
+  - ads
+  - privacy
+
+# How often the list is updated: hourly, daily, weekly, monthly
+update_frequency: daily
+
+# Target region (optional): global, cn, jp, kr, etc.
+region: global
+
+# Minimum adfilter version required (optional)
+min_version: "0.4.0"
