@@ -4,7 +4,7 @@ requires-python = ">=3.14"
 
 [[package]]
 name = "adfilter"
-version = "0.1.0"
+version = "1.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiodns" },
@@ -17,6 +17,14 @@ dependencies = [
     { name = "typer" },
 ]
 
+[package.optional-dependencies]
+all = [
+    { name = "aiohttp" },
+]
+notify = [
+    { name = "aiohttp" },
+]
+
 [package.dev-dependencies]
 dev = [
     { name = "pytest" },
@@ -26,8 +34,10 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "adfilter", extras = ["notify"], marker = "extra == 'all'" },
     { name = "aiodns", specifier = ">=3.2" },
     { name = "aiohttp", specifier = ">=3.10" },
+    { name = "aiohttp", marker = "extra == 'notify'", specifier = ">=3.10" },
     { name = "mmh3", specifier = ">=5.0" },
     { name = "pydantic", specifier = ">=2.9" },
     { name = "pydantic-settings", specifier = ">=2.6" },
@@ -35,6 +45,7 @@ requires-dist = [
     { name = "rich", specifier = ">=13.9" },
     { name = "typer", specifier = ">=0.12" },
 ]
+provides-extras = ["notify", "all"]
 
 [package.metadata.requires-dev]
 dev = [

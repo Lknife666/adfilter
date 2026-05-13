@@ -1,0 +1,48 @@
+name: Security
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 1"  # Every Monday 06:00 UTC
+
+env:
+  PYTHON_VERSION: "3.14"
+
+jobs:
+  dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+      - run: uv python install ${{ env.PYTHON_VERSION }}
+      - run: uv sync --frozen || uv sync
+      - name: Export requirements
+        run: uv pip freeze > requirements.txt
+      - name: Audit dependencies
+        run: uvx pip-audit -r requirements.txt --desc on
+        continue-on-error: true  # Advisory — don't block PRs
+
+  sast:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+      - run: uv python install ${{ env.PYTHON_VERSION }}
+      - name: Run Bandit (SAST)
+        run: uvx bandit -r src/ -c pyproject.toml --severity-level medium -f json -o bandit-report.json || true
+      - name: Show Bandit results
+        if: always()
+        run: uvx bandit -r src/ -c pyproject.toml --severity-level medium || true
+      - name: Upload SAST report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit-report.json
+          retention-days: 30

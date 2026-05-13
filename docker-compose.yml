@@ -1,0 +1,52 @@
+# adfilter — Docker Compose deployment
+# Usage:
+#   docker compose up -d          # start serving rules on port 8787
+#   docker compose run adfilter run --config /app/config/application.yaml  # one-shot build
+#
+# The default command runs the HTTP server with auto-refresh every 8 hours.
+
+services:
+  adfilter:
+    image: ghcr.io/lknife666/adfilter:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./config:/app/config:ro
+      - rule_data:/app/rule
+      - cache_data:/app/.cache
+    environment:
+      - TZ=Asia/Shanghai
+      # Uncomment and set for webhook notifications:
+      # - TELEGRAM_BOT_TOKEN=
+      # - TELEGRAM_CHAT_ID=
+      # - DISCORD_WEBHOOK_URL=
+      # - WECOM_KEY=
+    ports:
+      - "8787:8787"
+    command:
+      - serve
+      - --dir
+      - /app/rule
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8787"
+      - --auto-refresh
+      - --refresh-interval
+      - "480"
+      - --config
+      - /app/config/application.yaml
+    healthcheck:
+      test: ["CMD", "adfilter", "doctor", "--config", "/app/config/application.yaml"]
+      interval: 60s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  rule_data:
+    driver: local
+  cache_data:
+    driver: local
