@@ -1,0 +1,9 @@
+[Adblock Plus 2.0]
+! Title: Sample test list
+! Last modified: 2026-01-01
+||ads.example.com^
+||tracker.example.org^
+@@||allow.example.com^
+||wild*.example.net^
+/regex-pattern/
+0.0.0.0 blocked.example.com

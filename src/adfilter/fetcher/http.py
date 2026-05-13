@@ -1,4 +1,4 @@
-"""HTTP fetcher — streaming, line-buffered, with conditional-GET cache."""
+"""HTTP fetcher — streaming, line-buffered, with conditional-GET cache and fallback."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import time
 from collections.abc import AsyncIterator
 from pathlib import Path
 
@@ -23,12 +24,21 @@ def _cache_key(url: str) -> str:
     return hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
 
 
+class FetchError(Exception):
+    """Raised when fetch fails and fallback is exhausted."""
+
+    def __init__(self, url: str, cause: Exception, used_cache: bool = False) -> None:
+        self.url = url
+        self.cause = cause
+        self.used_cache = used_cache
+        super().__init__(f"fetch failed for {url}: {cause}")
+
+
 class HttpFetcher(Fetcher):
     """Async HTTP fetcher.
 
-    Feature #11 — optional on-disk cache with conditional GET:
-    if the server replies 304 Not Modified, we re-read the cached body
-    without decoding the (absent) response payload.
+    Feature #11 — optional on-disk cache with conditional GET.
+    v0.2 — error fallback: on_failure = fail_fast | cache_then_skip | skip_always
     """
 
     def __init__(self, config: HttpFetcherConfig) -> None:
@@ -58,6 +68,7 @@ class HttpFetcher(Fetcher):
                 log.debug("cache read failed for %s: %s", path, e)
 
         attempt = 0
+        last_error: Exception | None = None
         while True:
             try:
                 headers = {**base_headers, **conditional_headers}
@@ -65,14 +76,59 @@ class HttpFetcher(Fetcher):
                     yield line
                 return
             except (TimeoutError, aiohttp.ClientError) as e:
+                last_error = e
                 attempt += 1
                 if attempt > self._config.max_retries:
-                    log.error("fetch %s failed after %d retries: %s", path, attempt - 1, e)
-                    raise
+                    break
                 backoff = min(2**attempt, 30)
                 log.warning("fetch %s failed (attempt %d): %s, retrying in %ds",
                             path, attempt, e, backoff)
                 await asyncio.sleep(backoff)
+
+        # ── fallback logic ──────────────────────────────────────────
+        assert last_error is not None
+        strategy = self._config.on_failure
+
+        if strategy == "fail_fast":
+            log.error("fetch %s failed after %d retries (fail_fast): %s",
+                      path, attempt, last_error)
+            raise FetchError(path, last_error)
+
+        if strategy in ("cache_then_skip", "skip_always"):
+            # Try stale cache first (unless skip_always)
+            if strategy == "cache_then_skip" and cached_body is not None:
+                cache_age = self._cache_age_hours(meta_path)
+                if cache_age <= self._config.max_cache_age_hours:
+                    log.warning(
+                        "fetch %s failed, using cached version (%.1fh old): %s",
+                        path, cache_age, last_error,
+                    )
+                    for ln in cached_body.splitlines():
+                        yield ln
+                    return
+                log.warning(
+                    "fetch %s failed, cache too old (%.1fh > %dh limit), skipping: %s",
+                    path, cache_age, self._config.max_cache_age_hours, last_error,
+                )
+            else:
+                log.warning("fetch %s failed, no cache available, skipping: %s",
+                            path, last_error)
+            # Skip: yield nothing (empty source)
+            return
+
+        # Unknown strategy → fail
+        log.error("fetch %s failed (unknown strategy %r): %s", path, strategy, last_error)
+        raise FetchError(path, last_error)
+
+    def _cache_age_hours(self, meta_path: Path | None) -> float:
+        """Return cache age in hours, or infinity if unknown."""
+        if meta_path is None or not meta_path.exists():
+            return float("inf")
+        try:
+            mtime = meta_path.stat().st_mtime
+            return (time.time() - mtime) / 3600
+        except OSError:
+            return float("inf")
 
     # ── internals ───────────────────────────────────────────────────
     def _cache_paths(self, url: str) -> tuple[Path | None, Path | None]:
