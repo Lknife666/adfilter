@@ -40,6 +40,7 @@ from .config import AppConfig, OutputItem
 from .constants import RuleSet
 from .dns_prober import DnsProber
 from .logging_setup import setup_logging
+from .notifier.base import NotifyPayload, send_notifications
 from .optimizer import RuleOptimizer
 from .parser import Parser
 from .stats import BuildReport, OutputReport, SourceReport
@@ -108,7 +109,29 @@ async def _run(config: AppConfig, *, report_path: Path | None) -> BuildReport:
     outs: dict[str, OutputFile] = {o.name: create_temp(o) for o in config.output.files}
     batchers: dict[str, Batcher] = {name: Batcher(output=of) for name, of in outs.items()}
 
-    optimizer = RuleOptimizer(config.optimizer) if config.optimizer.enable else None
+    # v0.3: load allowlist domains
+    allowlist_domains: set[str] = set()
+    if config.input.allowlist:
+        for al_item in config.input.allowlist:
+            try:
+                al_path = Path(al_item.path)
+                if al_path.exists():
+                    for raw_line in al_path.read_text(encoding="utf-8").splitlines():
+                        stripped = raw_line.strip()
+                        if stripped and not stripped.startswith("#"):
+                            allowlist_domains.add(stripped.lower())
+            except Exception as e:  # noqa: BLE001
+                logging.warning("allowlist load error %s: %s", al_item.path, e)
+        if allowlist_domains:
+            logging.info("loaded %d allowlist domains", len(allowlist_domains))
+
+    # v0.3: build source→group mapping
+    source_groups: dict[str, str] = {}
+    for item in config.input.input:
+        if item.group:
+            source_groups[item.name] = item.group
+
+    optimizer = RuleOptimizer(config.optimizer, allowlist=allowlist_domains or None) if config.optimizer.enable else None
 
     t0 = time.monotonic()
 
@@ -135,6 +158,8 @@ async def _run(config: AppConfig, *, report_path: Path | None) -> BuildReport:
         async with sem:
             try:
                 async for rule in parser.handle(item):
+                    # v0.3: attach source group to rule for filtering
+                    rule._source_group = source_groups.get(item.name, "")  # type: ignore[attr-defined]
                     if optimizer is not None:
                         optimizer.feed(rule)
                     else:
@@ -203,6 +228,13 @@ async def _emit(rule, config: AppConfig, batchers: dict[str, Batcher]) -> None: 
 def _accepts(out: OutputItem, rule) -> bool:  # noqa: ANN001
     if out.rule and rule.source_name not in out.rule:
         return False
+    # v0.3: group-based filtering
+    if out.groups and rule.source_name:
+        # Check if any input matching source_name belongs to one of the output's groups
+        # We store group info on the rule via source_group attribute
+        rule_group = getattr(rule, "_source_group", "")
+        if rule_group and rule_group not in out.groups:
+            return False
     return not (out.filter and rule.type not in out.filter)
 
 
@@ -235,10 +267,24 @@ def cmd_run(
     setup_logging(log_level, json_logs=cfg.parser.json_logs)
 
     try:
-        asyncio.run(_run(cfg, report_path=report))
+        build_report = asyncio.run(_run(cfg, report_path=report))
+        # v0.3: send success notifications
+        if cfg.notifier.enable:
+            payload = NotifyPayload(success=True, report=build_report)
+            asyncio.run(send_notifications(cfg.notifier, payload))
     except KeyboardInterrupt:
         typer.echo("interrupted", err=True)
         sys.exit(130)
+    except Exception as e:  # noqa: BLE001
+        # v0.3: send failure notifications
+        if cfg.notifier.enable:
+            payload = NotifyPayload(success=False, report=None, error_message=str(e))
+            try:
+                asyncio.run(send_notifications(cfg.notifier, payload))
+            except Exception:  # noqa: BLE001
+                pass
+        typer.echo(f"build failed: {e}", err=True)
+        raise typer.Exit(code=1) from None
 
 
 @app.command(name="validate")
@@ -415,15 +461,59 @@ def cmd_serve(
                                             help="Directory to serve")] = Path("rule"),
     host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
     port: Annotated[int, typer.Option("--port", "-p")] = 8787,
+    auto_refresh: Annotated[bool, typer.Option("--auto-refresh/--no-auto-refresh",
+                                               help="Periodically rebuild rules")] = False,
+    refresh_interval: Annotated[int, typer.Option("--refresh-interval",
+                                                  help="Minutes between rebuilds")] = 480,
+    config: Annotated[Path, typer.Option("--config", "-c")] = Path("config/application.yaml"),
 ) -> None:
-    """Serve the generated rule directory over HTTP (handy for LAN subscribe URLs)."""
+    """Serve the generated rule directory over HTTP (handy for LAN subscribe URLs).
+
+    With --auto-refresh, periodically re-runs the pipeline and atomically
+    swaps the output directory so downloads are never interrupted.
+    """
     import http.server
+    import shutil
     import socketserver
+    import threading
 
     directory = directory.expanduser().resolve()
     if not directory.is_dir():
         typer.echo(f"not a directory: {directory}", err=True)
         raise typer.Exit(code=2)
+
+    def _rebuild() -> None:
+        """Run a rebuild and atomically swap the output."""
+        try:
+            cfg = AppConfig.from_yaml(config)
+            # Write to a temp dir, then swap
+            import tempfile
+            tmp_dir = Path(tempfile.mkdtemp(prefix="adfilter-serve-"))
+            cfg.output.path = str(tmp_dir)
+            asyncio.run(_run(cfg, report_path=None))
+            # Atomic swap: rename temp to target
+            backup = directory.with_suffix(".old")
+            if backup.exists():
+                shutil.rmtree(backup)
+            directory.rename(backup)
+            tmp_dir.rename(directory)
+            shutil.rmtree(backup, ignore_errors=True)
+            logging.info("auto-refresh: rebuild complete, directory swapped")
+        except Exception as e:  # noqa: BLE001
+            logging.error("auto-refresh rebuild failed: %s", e)
+
+    if auto_refresh:
+        setup_logging("INFO")
+
+        def _scheduler() -> None:
+            import time as _time
+            while True:
+                _time.sleep(refresh_interval * 60)
+                _rebuild()
+
+        t = threading.Thread(target=_scheduler, daemon=True)
+        t.start()
+        typer.echo(f"auto-refresh enabled: every {refresh_interval} min")
 
     class Handler(http.server.SimpleHTTPRequestHandler):
         def __init__(self, *a, **kw):
