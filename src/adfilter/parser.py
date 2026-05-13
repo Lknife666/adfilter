@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from collections.abc import AsyncIterator
@@ -36,7 +37,7 @@ class Parser:
     normalize_idn: bool = True
     on_source_done: object | None = None  # callback(SourceStats) for progress UI
     _seen_hashes: set[int] = field(default_factory=set)
-    _seen_lock: object | None = field(default=None, init=False)
+    _seen_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
     async def handle(self, item: InputItem) -> AsyncIterator[Rule]:
         """Stream valid, de-duplicated rules from one input source."""
@@ -86,10 +87,11 @@ class Parser:
 
             # dedupe by murmur3
             h = rule.murmur3_hash()
-            if h in self._seen_hashes:
-                stats.repeat += 1
-                continue
-            self._seen_hashes.add(h)
+            async with self._seen_lock:
+                if h in self._seen_hashes:
+                    stats.repeat += 1
+                    continue
+                self._seen_hashes.add(h)
 
             # optional DNS probe
             if (

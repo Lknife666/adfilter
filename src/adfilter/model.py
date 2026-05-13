@@ -44,6 +44,7 @@ class Rule:
     dest: str | None = None
     source_type: RuleSet | None = None
     source_name: str = ""
+    source_group: str = ""
     mode: Mode | None = None
     scope: Scope | None = None
     type: RuleType | None = None

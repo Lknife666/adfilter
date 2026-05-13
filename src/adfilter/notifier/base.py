@@ -1,4 +1,4 @@
-"""Notifier base and dispatcher."""
+"""Notifier base, registry, and dispatcher."""
 
 from __future__ import annotations
 
@@ -6,11 +6,55 @@ import logging
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from importlib.metadata import entry_points
 
 from ..config import NotifierChannel, NotifierConfig
 from ..stats import BuildReport
 
 log = logging.getLogger(__name__)
+
+# ── Registry ────────────────────────────────────────────────────────
+_NOTIFIER_REGISTRY: dict[str, type[Notifier]] = {}
+
+
+def register_notifier(name: str, cls: type[Notifier]) -> None:
+    """Register a notifier class under a channel type name."""
+    _NOTIFIER_REGISTRY[name] = cls
+
+
+def get_notifier_class(name: str) -> type[Notifier] | None:
+    """Look up a registered notifier class by type name."""
+    return _NOTIFIER_REGISTRY.get(name)
+
+
+def discover_notifier_plugins() -> None:
+    """Load third-party notifiers registered via entry_points.
+
+    Third-party packages declare entry points under ``adfilter.notifiers``::
+
+        [project.entry-points."adfilter.notifiers"]
+        slack = "my_package.notifier:SlackNotifier"
+
+    Each entry point must resolve to a Notifier subclass.
+    """
+    try:
+        eps = entry_points(group="adfilter.notifiers")
+    except TypeError:
+        eps = entry_points().get("adfilter.notifiers", [])
+
+    for ep in eps:
+        try:
+            notifier_cls = ep.load()
+            if isinstance(notifier_cls, type) and issubclass(notifier_cls, Notifier):
+                register_notifier(ep.name, notifier_cls)
+                log.info("loaded notifier plugin: %s", ep.name)
+            else:
+                log.warning("notifier plugin %s is not a Notifier subclass, skipping", ep.name)
+        except Exception as e:  # noqa: BLE001
+            log.warning("failed to load notifier plugin %s: %s", ep.name, e)
+
+
+# ── Data ────────────────────────────────────────────────────────────
 
 
 @dataclass
@@ -40,12 +84,18 @@ class NotifyPayload:
         return "\n".join(lines)
 
 
+# ── Abstract base ───────────────────────────────────────────────────
+
+
 class Notifier(ABC):
     """Abstract notifier."""
 
     @abstractmethod
     async def send(self, payload: NotifyPayload) -> bool:
         """Send notification. Return True on success."""
+
+
+# ── Helpers ─────────────────────────────────────────────────────────
 
 
 def _resolve_env(value: str) -> str:
@@ -57,33 +107,41 @@ def _resolve_env(value: str) -> str:
 
 
 def _create_notifier(channel: NotifierChannel) -> Notifier | None:
-    """Factory: create notifier from channel config."""
+    """Factory: create notifier from channel config using the registry."""
+    cls = get_notifier_class(channel.type)
+    if cls is None:
+        log.warning("unknown notifier type: %s", channel.type)
+        return None
+
+    # Each built-in notifier has a from_channel classmethod or we use
+    # type-specific construction logic based on channel fields.
     match channel.type:
         case "telegram":
-            from .telegram import TelegramNotifier
             token = _resolve_env(channel.bot_token)
             chat_id = _resolve_env(channel.chat_id)
             if not token or not chat_id:
                 log.warning("telegram notifier: missing bot_token or chat_id")
                 return None
-            return TelegramNotifier(bot_token=token, chat_id=chat_id)
+            return cls(bot_token=token, chat_id=chat_id)  # type: ignore[call-arg]
         case "discord":
-            from .discord import DiscordNotifier
             url = _resolve_env(channel.webhook_url)
             if not url:
                 log.warning("discord notifier: missing webhook_url")
                 return None
-            return DiscordNotifier(webhook_url=url)
+            return cls(webhook_url=url)  # type: ignore[call-arg]
         case "wecom":
-            from .wecom import WecomNotifier
             key = _resolve_env(channel.webhook_key)
             if not key:
                 log.warning("wecom notifier: missing webhook_key")
                 return None
-            return WecomNotifier(webhook_key=key)
+            return cls(webhook_key=key)  # type: ignore[call-arg]
         case _:
-            log.warning("unknown notifier type: %s", channel.type)
-            return None
+            # Third-party plugins: try generic construction with channel data
+            try:
+                return cls(channel=channel)  # type: ignore[call-arg]
+            except TypeError:
+                log.warning("notifier %s: could not construct from channel config", channel.type)
+                return None
 
 
 async def send_notifications(config: NotifierConfig, payload: NotifyPayload) -> None:

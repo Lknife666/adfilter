@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from adfilter.__main__ import app
+from adfilter.cli import app
 
 
 runner = CliRunner()

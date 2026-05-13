@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import ipaddress
 import json
 import logging
+import socket
 import time
 from collections.abc import AsyncIterator
 from pathlib import Path
+from urllib.parse import urlparse
 
 import aiohttp
 
@@ -18,6 +21,53 @@ from .base import Fetcher
 log = logging.getLogger(__name__)
 
 _CHUNK = 16 * 1024
+
+# ── SSRF protection: block requests to private/reserved IP ranges ──
+_BLOCKED_NETWORKS = [
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("169.254.0.0/16"),   # link-local
+    ipaddress.ip_network("0.0.0.0/8"),
+    ipaddress.ip_network("::1/128"),           # IPv6 loopback
+    ipaddress.ip_network("fc00::/7"),          # IPv6 unique local
+    ipaddress.ip_network("fe80::/10"),         # IPv6 link-local
+]
+
+
+class SSRFError(Exception):
+    """Raised when a URL resolves to a private/reserved IP address."""
+
+    def __init__(self, url: str, ip: str) -> None:
+        self.url = url
+        self.ip = ip
+        super().__init__(f"SSRF blocked: {url} resolves to private address {ip}")
+
+
+def _check_ssrf(url: str) -> None:
+    """Resolve the hostname and reject private/reserved IPs to prevent SSRF attacks."""
+    parsed = urlparse(url)
+    hostname = parsed.hostname
+    if not hostname:
+        raise SSRFError(url, "<no host>")
+
+    try:
+        addr_info = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
+    except socket.gaierror:
+        # Cannot resolve — let aiohttp handle the DNS error naturally
+        return
+
+    for _family, _type, _proto, _canonname, sockaddr in addr_info:
+        ip_str = sockaddr[0]
+        try:
+            ip = ipaddress.ip_address(ip_str)
+        except ValueError:
+            continue
+        for network in _BLOCKED_NETWORKS:
+            if ip in network:
+                raise SSRFError(url, ip_str)
+
 
 
 def _cache_key(url: str) -> str:
@@ -50,6 +100,13 @@ class HttpFetcher(Fetcher):
 
     # ── public ──────────────────────────────────────────────────────
     async def fetch(self, path: str) -> AsyncIterator[str]:
+        # SSRF guard: reject URLs that resolve to private/reserved IPs
+        try:
+            _check_ssrf(path)
+        except SSRFError as e:
+            log.error("SSRF protection blocked request: %s", e)
+            return
+
         timeout = aiohttp.ClientTimeout(total=self._config.timeout_seconds)
         base_headers = {"User-Agent": self._config.user_agent, **self._config.headers}
 
