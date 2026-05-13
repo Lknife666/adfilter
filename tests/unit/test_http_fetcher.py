@@ -85,3 +85,79 @@ class TestSSRFProtection:
     def test_no_hostname_raises(self):
         with pytest.raises(SSRFError):
             _check_ssrf("http:///path/only")
+
+
+
+class TestFetcherFactory:
+    """Test fetcher/factory.py — detect_handle_type and get_fetcher."""
+
+    def test_detect_http_url(self):
+        from adfilter.fetcher.factory import detect_handle_type
+        from adfilter.constants import HandleType
+
+        assert detect_handle_type("https://example.com/list.txt") == HandleType.REMOTE
+        assert detect_handle_type("http://example.com/list.txt") == HandleType.REMOTE
+        assert detect_handle_type("HTTP://EXAMPLE.COM") == HandleType.REMOTE
+
+    def test_detect_local_path(self):
+        from adfilter.fetcher.factory import detect_handle_type
+        from adfilter.constants import HandleType
+
+        assert detect_handle_type("/tmp/rules.txt") == HandleType.LOCAL
+        assert detect_handle_type("./relative/path.txt") == HandleType.LOCAL
+        assert detect_handle_type("file.txt") == HandleType.LOCAL
+
+    def test_get_fetcher_remote(self):
+        from adfilter.config import FetcherConfig
+        from adfilter.constants import HandleType
+        from adfilter.fetcher.factory import get_fetcher
+        from adfilter.fetcher.http import HttpFetcher
+
+        config = FetcherConfig()
+        fetcher = get_fetcher(HandleType.REMOTE, config)
+        assert isinstance(fetcher, HttpFetcher)
+
+    def test_get_fetcher_local(self):
+        from adfilter.config import FetcherConfig
+        from adfilter.constants import HandleType
+        from adfilter.fetcher.factory import get_fetcher
+        from adfilter.fetcher.local import LocalFetcher
+
+        config = FetcherConfig()
+        fetcher = get_fetcher(HandleType.LOCAL, config)
+        assert isinstance(fetcher, LocalFetcher)
+
+
+
+class TestLocalFetcher:
+    """Test fetcher/local.py."""
+
+    @pytest.mark.asyncio
+    async def test_reads_file_lines(self, tmp_path):
+        from adfilter.config import LocalFetcherConfig
+        from adfilter.fetcher.local import LocalFetcher
+
+        f = tmp_path / "rules.txt"
+        f.write_text("line1\nline2\nline3\n", encoding="utf-8")
+
+        fetcher = LocalFetcher(LocalFetcherConfig())
+        lines = []
+        async for line in fetcher.fetch(str(f)):
+            lines.append(line)
+
+        assert lines == ["line1", "line2", "line3"]
+
+    @pytest.mark.asyncio
+    async def test_strips_crlf(self, tmp_path):
+        from adfilter.config import LocalFetcherConfig
+        from adfilter.fetcher.local import LocalFetcher
+
+        f = tmp_path / "rules.txt"
+        f.write_bytes(b"line1\r\nline2\r\n")
+
+        fetcher = LocalFetcher(LocalFetcherConfig())
+        lines = []
+        async for line in fetcher.fetch(str(f)):
+            lines.append(line)
+
+        assert lines == ["line1", "line2"]

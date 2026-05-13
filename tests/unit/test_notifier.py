@@ -95,3 +95,96 @@ class TestNotifierRegistry:
 
         register_notifier("custom_test", CustomNotifier)
         assert get_notifier_class("custom_test") is CustomNotifier
+
+
+
+class TestCreateNotifier:
+    """Test notifier factory creation logic."""
+
+    def test_telegram_with_credentials(self):
+        from adfilter.config import NotifierChannel
+        from adfilter.notifier.base import _create_notifier
+
+        channel = NotifierChannel(type="telegram", bot_token="token123", chat_id="12345")
+        notifier = _create_notifier(channel)
+        assert notifier is not None
+
+    def test_telegram_missing_token(self):
+        from adfilter.config import NotifierChannel
+        from adfilter.notifier.base import _create_notifier
+
+        channel = NotifierChannel(type="telegram", bot_token="", chat_id="12345")
+        notifier = _create_notifier(channel)
+        assert notifier is None
+
+    def test_discord_with_url(self):
+        from adfilter.config import NotifierChannel
+        from adfilter.notifier.base import _create_notifier
+
+        channel = NotifierChannel(type="discord", webhook_url="https://discord.com/api/webhooks/test")
+        notifier = _create_notifier(channel)
+        assert notifier is not None
+
+    def test_discord_missing_url(self):
+        from adfilter.config import NotifierChannel
+        from adfilter.notifier.base import _create_notifier
+
+        channel = NotifierChannel(type="discord", webhook_url="")
+        notifier = _create_notifier(channel)
+        assert notifier is None
+
+    def test_wecom_with_key(self):
+        from adfilter.config import NotifierChannel
+        from adfilter.notifier.base import _create_notifier
+
+        channel = NotifierChannel(type="wecom", webhook_key="key123")
+        notifier = _create_notifier(channel)
+        assert notifier is not None
+
+    def test_wecom_missing_key(self):
+        from adfilter.config import NotifierChannel
+        from adfilter.notifier.base import _create_notifier
+
+        channel = NotifierChannel(type="wecom", webhook_key="")
+        notifier = _create_notifier(channel)
+        assert notifier is None
+
+    def test_unknown_type_returns_none(self):
+        from adfilter.config import NotifierChannel
+        from adfilter.notifier.base import _create_notifier
+
+        channel = NotifierChannel(type="unknown_xyz")
+        notifier = _create_notifier(channel)
+        assert notifier is None
+
+
+class TestSendNotifications:
+    """Test the dispatcher logic."""
+
+    @pytest.mark.asyncio
+    async def test_disabled_does_nothing(self):
+        from adfilter.config import NotifierConfig
+        from adfilter.notifier.base import send_notifications
+
+        config = NotifierConfig(enable=False)
+        payload = NotifyPayload(success=True, report=None)
+        # Should return without error
+        await send_notifications(config, payload)
+
+    @pytest.mark.asyncio
+    async def test_success_skipped_when_on_success_false(self):
+        from adfilter.config import NotifierConfig
+        from adfilter.notifier.base import send_notifications
+
+        config = NotifierConfig(enable=True, on_success=False)
+        payload = NotifyPayload(success=True, report=None)
+        await send_notifications(config, payload)
+
+    @pytest.mark.asyncio
+    async def test_failure_skipped_when_on_failure_false(self):
+        from adfilter.config import NotifierConfig
+        from adfilter.notifier.base import send_notifications
+
+        config = NotifierConfig(enable=True, on_failure=False)
+        payload = NotifyPayload(success=False, report=None, error_message="err")
+        await send_notifications(config, payload)

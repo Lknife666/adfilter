@@ -78,3 +78,107 @@ class TestBuildHeader:
         header = build_header(item, "Header: ${name}", 50)
         # Clash handler's head_format returns "payload:"
         assert "payload:" in header
+
+
+
+class TestWriteSingbox:
+    """Test the _write_singbox JSON assembly function."""
+
+    def test_assembles_valid_json(self, tmp_path):
+        from adfilter.writer import _write_singbox
+
+        # Create a temp file with JSON-line fragments
+        temp = tmp_path / "input.tmp"
+        temp.write_text(
+            '{"domain_suffix": ["example.com"]}\n'
+            '{"domain": ["exact.example.com"]}\n'
+            '{"domain_suffix": ["test.org"]}\n',
+            encoding="utf-8",
+        )
+        output = tmp_path / "output.json"
+        _write_singbox(output, temp, "")
+
+        data = json.loads(output.read_text(encoding="utf-8"))
+        assert data["version"] == 2
+        assert "rules" in data
+        # Should have domain_suffix and domain arrays
+        all_suffixes = []
+        all_domains = []
+        for rule in data["rules"]:
+            all_suffixes.extend(rule.get("domain_suffix", []))
+            all_domains.extend(rule.get("domain", []))
+        assert "example.com" in all_suffixes
+        assert "test.org" in all_suffixes
+        assert "exact.example.com" in all_domains
+
+    def test_skips_comments(self, tmp_path):
+        from adfilter.writer import _write_singbox
+
+        temp = tmp_path / "input.tmp"
+        temp.write_text(
+            '// this is a comment\n'
+            '# another comment\n'
+            '{"domain_suffix": ["only.com"]}\n',
+            encoding="utf-8",
+        )
+        output = tmp_path / "output.json"
+        _write_singbox(output, temp, "")
+
+        data = json.loads(output.read_text(encoding="utf-8"))
+        rules = data["rules"]
+        assert len(rules) == 1
+        assert "only.com" in rules[0]["domain_suffix"]
+
+    def test_deduplicates_domains(self, tmp_path):
+        from adfilter.writer import _write_singbox
+
+        temp = tmp_path / "input.tmp"
+        temp.write_text(
+            '{"domain_suffix": ["dup.com"]}\n'
+            '{"domain_suffix": ["dup.com"]}\n'
+            '{"domain_suffix": ["unique.com"]}\n',
+            encoding="utf-8",
+        )
+        output = tmp_path / "output.json"
+        _write_singbox(output, temp, "")
+
+        data = json.loads(output.read_text(encoding="utf-8"))
+        suffixes = data["rules"][0]["domain_suffix"]
+        assert suffixes.count("dup.com") == 1  # deduplicated
+
+    def test_header_creates_sidecar(self, tmp_path):
+        from adfilter.writer import _write_singbox
+
+        temp = tmp_path / "input.tmp"
+        temp.write_text('{"domain": ["x.com"]}\n', encoding="utf-8")
+        output = tmp_path / "output.json"
+        _write_singbox(output, temp, "# My Header\n# Description\n")
+
+        sidecar = output.with_suffix(output.suffix + ".about.txt")
+        assert sidecar.exists()
+        assert "My Header" in sidecar.read_text(encoding="utf-8")
+
+
+class TestWritePlain:
+    def test_prepends_header(self, tmp_path):
+        from adfilter.writer import _write_plain
+
+        temp = tmp_path / "body.tmp"
+        temp.write_text("line1\nline2\nline3\n", encoding="utf-8")
+        output = tmp_path / "output.txt"
+        _write_plain(output, temp, "# Header\n")
+
+        content = output.read_text(encoding="utf-8")
+        assert content.startswith("# Header\n")
+        assert "line1\nline2\nline3\n" in content
+
+    def test_no_header(self, tmp_path):
+        from adfilter.writer import _write_plain
+
+        temp = tmp_path / "body.tmp"
+        temp.write_text("data\n", encoding="utf-8")
+        output = tmp_path / "output.txt"
+        _write_plain(output, temp, "")
+
+        content = output.read_text(encoding="utf-8")
+        assert content == "data\n"
