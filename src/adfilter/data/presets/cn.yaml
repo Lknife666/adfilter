@@ -1,0 +1,34 @@
+# adfilter preset: China (cn)
+# Recommended sources for Chinese users
+application:
+  config:
+    input:
+      rule:
+        default:
+          - name: anti-ad
+            type: easylist
+            path: https://anti-ad.net/easylist.txt
+          - name: easylist-china
+            type: easylist
+            path: https://easylist-downloads.adblockplus.org/easylistchina.txt
+          - name: cjx-annoyance
+            type: easylist
+            path: https://raw.githubusercontent.com/cjx82630/cjxlist/master/cjx-annoyance.txt
+
+    output:
+      path: ./rule
+      files:
+        - { name: easylist.txt,   type: easylist, desc: "EasyList 广告过滤" }
+        - { name: dns.txt,        type: dns,      desc: "AdGuard Home DNS" }
+        - { name: dnsmasq.conf,   type: dnsmasq,  desc: "dnsmasq 规则" }
+        - { name: clash.yaml,     type: clash,    desc: "Clash 规则" }
+        - { name: hosts.txt,      type: hosts,    desc: "/etc/hosts" }
+        - { name: surge.conf,     type: surge,    desc: "Surge domain-set" }
+        - { name: singbox.json,   type: singbox,  desc: "sing-box 规则集" }
+        - { name: quantumult.conf, type: quantumult, desc: "Quantumult X 过滤规则" }
+        - { name: loon.conf,      type: loon,     desc: "Loon 规则" }
+
+    optimizer:
+      enable: true
+      collapse_subdomains: true
+      normalize_idn: true
