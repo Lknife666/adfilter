@@ -67,6 +67,24 @@
 
 ---
 
+## Fork + GitHub Actions (Recommended Personalization)
+
+The easiest way to get **your own customized filter list** — no server required:
+
+1. **Fork** this repository on GitHub
+2. **Edit** `config/application.yaml` — choose your rule sources, output formats, and allowlist
+3. **Enable** GitHub Actions in your fork (Settings → Actions → Allow all actions)
+4. **Wait** for the scheduled workflow (every 8 hours) or trigger manually via Actions → "Update Filters" → Run workflow
+5. **Subscribe** using your fork's `release` branch URLs:
+   ```
+   https://raw.githubusercontent.com/<you>/adfilter/release/dns.txt
+   ```
+6. **(Optional)** Add secrets for notifications: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `DISCORD_WEBHOOK_URL`
+
+> All 12 output formats are generated automatically. Edit `config/application.yaml` to add/remove sources or change formats.
+
+---
+
 ## Features
 
 | Category | Highlights |

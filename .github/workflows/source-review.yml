@@ -1,0 +1,75 @@
+name: Source Review
+
+on:
+  pull_request:
+    paths:
+      - "config/**"
+      - "src/adfilter/data/**"
+      - "community/sources/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  PYTHON_VERSION: "3.14"
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - run: uv python install ${{ env.PYTHON_VERSION }}
+      - run: uv sync --no-dev
+
+      - name: Validate source catalog
+        run: |
+          uv run python -c "
+          import yaml
+          from pathlib import Path
+
+          catalog = Path('src/adfilter/data/source_catalog.yaml')
+          data = yaml.safe_load(catalog.read_text())
+          sources = data.get('sources', [])
+          print(f'Source catalog: {len(sources)} sources')
+
+          errors = []
+          for src in sources:
+              if 'name' not in src:
+                  errors.append(f'Source missing name: {src}')
+              if 'url' not in src:
+                  errors.append(f'Source missing url: {src.get(\"name\", \"unknown\")}')
+
+          if errors:
+              for e in errors:
+                  print(f'::error::{e}')
+              raise SystemExit(1)
+
+          print('All sources valid')
+          "
+
+      - name: Check community sources
+        run: |
+          shopt -s nullglob
+          for f in community/sources/*.yaml; do
+            echo "Validating: $f"
+            uv run python -c "
+          import yaml, sys
+          data = yaml.safe_load(open('$f'))
+          required = ['name', 'url', 'type', 'author']
+          missing = [k for k in required if k not in data]
+          if missing:
+              print(f'::error file=$f::Missing fields: {missing}')
+              sys.exit(1)
+          print(f'  OK: {data[\"name\"]} by {data[\"author\"]}')
+          "
+          done
+
+      - name: Validate config
+        run: uv run adfilter validate --config config/application.yaml

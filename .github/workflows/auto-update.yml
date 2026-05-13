@@ -67,6 +67,15 @@ jobs:
             --log-level INFO \
             --report rule/build-report.json
 
+      - name: Generate index.html
+        run: |
+          uv run python -c "
+          from adfilter.web.pages_generator import PagesGenerator
+          gen = PagesGenerator(rule_dir='rule/', repo='${{ github.repository }}')
+          gen.generate_index(output_path='rule/index.html')
+          print('Generated rule/index.html')
+          "
+
       - name: Summarise output
         id: summary
         run: |

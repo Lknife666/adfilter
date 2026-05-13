@@ -1,0 +1,55 @@
+{{- if .Values.cronjob.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "adfilter.fullname" . }}-update
+  labels:
+    app.kubernetes.io/name: {{ include "adfilter.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  schedule: {{ .Values.cronjob.schedule | quote }}
+  successfulJobsHistoryLimit: {{ .Values.cronjob.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.cronjob.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          {{- with .Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          restartPolicy: OnFailure
+          containers:
+            - name: {{ .Chart.Name }}-update
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command: ["adfilter", "run"]
+              args:
+                - "--config"
+                - "/app/config/application.yaml"
+                - "--report"
+                - "{{ .Values.persistence.mountPath }}/build-report.json"
+              {{- with .Values.env }}
+              env:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              resources:
+                {{- toYaml .Values.resources | nindent 16 }}
+              volumeMounts:
+                - name: config
+                  mountPath: /app/config
+                  readOnly: true
+                - name: rule-data
+                  mountPath: {{ .Values.persistence.mountPath }}
+          volumes:
+            - name: config
+              configMap:
+                name: {{ include "adfilter.fullname" . }}-config
+            - name: rule-data
+              {{- if .Values.persistence.enabled }}
+              persistentVolumeClaim:
+                claimName: {{ include "adfilter.fullname" . }}-data
+              {{- else }}
+              emptyDir: {}
+              {{- end }}
+{{- end }}

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search — adfilter</title>
+    <style>
+        :root { --bg: #0d1117; --fg: #c9d1d9; --accent: #58a6ff; --card-bg: #161b22; --border: #30363d; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+               background: var(--bg); color: var(--fg); line-height: 1.6; }
+        nav { background: var(--card-bg); border-bottom: 1px solid var(--border);
+              padding: 0.75rem 2rem; display: flex; align-items: center; gap: 2rem; }
+        nav .brand { font-weight: bold; font-size: 1.1rem; color: var(--accent); text-decoration: none; }
+        nav a { color: var(--fg); text-decoration: none; font-size: 0.9rem; }
+        nav a:hover { color: var(--accent); }
+        .container { max-width: 1000px; margin: 2rem auto; padding: 0 1.5rem; }
+        h1 { margin-bottom: 1.5rem; }
+        .search-box { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+        .search-box input {
+            flex: 1; padding: 0.6rem 1rem; background: var(--card-bg);
+            border: 1px solid var(--border); border-radius: 6px; color: var(--fg);
+            font-size: 1rem; outline: none;
+        }
+        .search-box input:focus { border-color: var(--accent); }
+        .search-box button {
+            padding: 0.6rem 1.5rem; background: var(--accent); color: #fff;
+            border: none; border-radius: 6px; cursor: pointer; font-size: 1rem;
+        }
+        .search-box button:hover { opacity: 0.9; }
+        #results { font-family: monospace; }
+        .result-item {
+            padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
+        }
+        .result-item:hover { background: var(--card-bg); }
+        .no-results { color: #8b949e; font-style: italic; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="/" class="brand">adfilter</a>
+        <a href="/">Dashboard</a>
+        <a href="/search">Search</a>
+    </nav>
+    <div class="container">
+        <h1>Rule Search</h1>
+        <p style="margin-bottom: 1rem; color: #8b949e;">Check if a domain is in the block list</p>
+        <div class="search-box">
+            <input type="text" id="query" placeholder="Enter domain (e.g., ads.example.com)" />
+            <button onclick="search()">Search</button>
+        </div>
+        <div id="results"></div>
+    </div>
+    <script>
+        async function search() {
+            const q = document.getElementById('query').value.trim();
+            if (!q) return;
+            const res = await fetch('/api/search?q=' + encodeURIComponent(q));
+            const data = await res.json();
+            const el = document.getElementById('results');
+            if (data.results && data.results.length > 0) {
+                el.innerHTML = data.results.map(r =>
+                    '<div class="result-item">' + r.rule + ' <small>(' + r.file + ')</small></div>'
+                ).join('');
+            } else {
+                el.innerHTML = '<p class="no-results">No matching rules found for "' + q + '"</p>';
+            }
+        }
+        document.getElementById('query').addEventListener('keypress', e => { if (e.key === 'Enter') search(); });
+    </script>
+</body>
+</html>
