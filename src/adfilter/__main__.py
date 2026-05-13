@@ -164,6 +164,8 @@ async def _run(config: AppConfig, *, report_path: Path | None) -> BuildReport:
                         optimizer.feed(rule)
                     else:
                         await _emit(rule, config, batchers)
+            except Exception as e:  # noqa: BLE001
+                logging.error("[%s] source failed: %s", item.name, e)
             finally:
                 if progress and task_id is not None:
                     progress.update(task_id, advance=1)

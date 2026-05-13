@@ -1,11 +1,21 @@
 [project]
 name = "adfilter"
-version = "0.1.0"
-description = "Ad filter rule aggregator & converter (Python port of Lknife-Ad-Filter)"
+version = "1.0.0"
+description = "Ad filter rule aggregator & converter — 12 output formats, plugin system, allowlist, notifications"
 readme = "README.md"
 requires-python = ">=3.14"
 license = { text = "MIT" }
 authors = [{ name = "Lknife666" }]
+keywords = ["adblock", "dns", "filter", "hosts", "clash", "surge", "singbox", "adguard"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Internet :: Name Service (DNS)",
+    "Topic :: System :: Networking :: Firewalls",
+]
 dependencies = [
     "aiohttp>=3.10",
     "pydantic>=2.9",
@@ -17,8 +27,22 @@ dependencies = [
     "aiodns>=3.2",
 ]
 
+[project.optional-dependencies]
+notify = ["aiohttp>=3.10"]  # notifications use aiohttp (already a core dep, explicit for clarity)
+all = ["adfilter[notify]"]
+
+[project.urls]
+Homepage = "https://github.com/Lknife666/adfilter"
+Repository = "https://github.com/Lknife666/adfilter"
+Issues = "https://github.com/Lknife666/adfilter/issues"
+Changelog = "https://github.com/Lknife666/adfilter/blob/main/CHANGELOG.md"
+
 [project.scripts]
 adfilter = "adfilter.__main__:app"
+
+[project.entry-points."adfilter.handlers"]
+# Third-party handler plugins register here. Example:
+# my_format = "my_package.handler:MyHandler"
 
 [build-system]
 requires = ["hatchling"]
@@ -58,3 +82,7 @@ ignore = ["PLR0913", "PLR2004", "PLR0912", "PLR0915", "PLR0911", "E501",
           "PLC0415",  # lazy imports inside CLI commands are intentional
           "E702",     # we use `;` for compact column definitions in CLI output
           "SIM105"]   # try/except/pass is clearer than contextlib.suppress in hot paths
+
+[tool.bandit]
+exclude_dirs = ["tests"]
+skips = ["B101"]  # assert usage in tests is fine
