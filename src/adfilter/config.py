@@ -28,6 +28,9 @@ class HttpFetcherConfig(BaseModel):
     cache_dir: str | None = None              # None disables on-disk cache
     # #12 — concurrent fetches
     max_concurrency: int = 8
+    # v0.2 — error handling / fallback
+    on_failure: str = "cache_then_skip"       # fail_fast | cache_then_skip | skip_always
+    max_cache_age_hours: int = 72             # stale cache limit
 
 
 class FetcherConfig(BaseModel):
