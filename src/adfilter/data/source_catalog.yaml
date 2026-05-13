@@ -1,0 +1,81 @@
+# adfilter source catalog — built-in known rule sources
+sources:
+  - id: anti-ad
+    name: "anti-AD"
+    url: https://anti-ad.net/easylist.txt
+    format: easylist
+    region: cn
+    category: ads
+    description: "中国最流行的广告过滤列表"
+
+  - id: easylist
+    name: "EasyList"
+    url: https://easylist.to/easylist/easylist.txt
+    format: easylist
+    region: global
+    category: ads
+    description: "ABP official ad blocking list"
+
+  - id: easylist-china
+    name: "EasyList China"
+    url: https://easylist-downloads.adblockplus.org/easylistchina.txt
+    format: easylist
+    region: cn
+    category: ads
+    description: "EasyList 中国区补充列表"
+
+  - id: easyprivacy
+    name: "EasyPrivacy"
+    url: https://easylist.to/easylist/easyprivacy.txt
+    format: easylist
+    region: global
+    category: privacy
+    description: "ABP official privacy/tracking protection list"
+
+  - id: cjx-annoyance
+    name: "CJX Annoyance"
+    url: https://raw.githubusercontent.com/cjx82630/cjxlist/master/cjx-annoyance.txt
+    format: easylist
+    region: cn
+    category: annoyance
+    description: "中文烦人元素过滤列表"
+
+  - id: adguard-dns
+    name: "AdGuard DNS Filter"
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt
+    format: dns
+    region: global
+    category: ads
+    description: "AdGuard official DNS filter"
+
+  - id: peter-lowe
+    name: "Peter Lowe's List"
+    url: https://pgl.yoyo.org/adservers/serverlist.php?hostformat=hosts&showintro=0&mimetype=plaintext
+    format: hosts
+    region: global
+    category: ads
+    description: "Peter Lowe's ad/tracking server list"
+
+  - id: urlhaus
+    name: "URLhaus Malicious"
+    url: https://urlhaus.abuse.ch/downloads/hostfile/
+    format: hosts
+    region: global
+    category: malware
+    description: "Abuse.ch URLhaus malicious URL hosts"
+
+  - id: phishing-army
+    name: "Phishing Army"
+    url: https://phishing.army/download/phishing_army_blocklist.txt
+    format: easylist
+    region: global
+    category: malware
+    description: "Phishing domain blocklist"
+
+  - id: japanese-filters
+    name: "280blocker"
+    url: https://280blocker.net/files/280blocker_adblock.txt
+    format: easylist
+    region: jp
+    category: ads
+    description: "日本語広告ブロックリスト (280blocker)"

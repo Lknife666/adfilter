@@ -1,0 +1,32 @@
+# adfilter preset: Global
+# Recommended sources for international users
+application:
+  config:
+    input:
+      rule:
+        default:
+          - name: easylist
+            type: easylist
+            path: https://easylist.to/easylist/easylist.txt
+          - name: easyprivacy
+            type: easylist
+            path: https://easylist.to/easylist/easyprivacy.txt
+          - name: peter-lowe
+            type: hosts
+            path: https://pgl.yoyo.org/adservers/serverlist.php?hostformat=hosts&showintro=0&mimetype=plaintext
+
+    output:
+      path: ./rule
+      files:
+        - { name: easylist.txt,   type: easylist, desc: "EasyList ad filter" }
+        - { name: dns.txt,        type: dns,      desc: "AdGuard Home DNS" }
+        - { name: dnsmasq.conf,   type: dnsmasq,  desc: "dnsmasq rules" }
+        - { name: clash.yaml,     type: clash,    desc: "Clash rules" }
+        - { name: hosts.txt,      type: hosts,    desc: "/etc/hosts" }
+        - { name: surge.conf,     type: surge,    desc: "Surge domain-set" }
+        - { name: singbox.json,   type: singbox,  desc: "sing-box ruleset" }
+
+    optimizer:
+      enable: true
+      collapse_subdomains: true
+      normalize_idn: true

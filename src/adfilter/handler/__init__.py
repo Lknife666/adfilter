@@ -1,12 +1,14 @@
 """Rule format handlers."""
 
-from .base import Handler, get_handler, register_handler
+from .base import Handler, discover_plugins, get_handler, register_handler
 from .clash_handler import ClashHandler
 from .dns_handler import DnsHandler
 from .dnsmasq_handler import DnsmasqHandler
 from .easylist_handler import EasylistHandler
 from .hosts_handler import HostsHandler
+from .loon_handler import LoonHandler
 from .mikrotik_handler import MikrotikHandler
+from .quantumult_handler import QuantumultHandler
 from .singbox_handler import SingboxHandler
 from .smartdns_handler import SmartdnsHandler
 from .surge_handler import SurgeHandler
@@ -24,7 +26,12 @@ _ALL_HANDLERS = (
     SingboxHandler(),
     MikrotikHandler(),
     UnboundHandler(),
+    QuantumultHandler(),
+    LoonHandler(),
 )
+
+# v0.4: discover third-party plugins
+discover_plugins()
 
 __all__ = [
     "ClashHandler",
@@ -33,11 +40,14 @@ __all__ = [
     "EasylistHandler",
     "Handler",
     "HostsHandler",
+    "LoonHandler",
     "MikrotikHandler",
+    "QuantumultHandler",
     "SingboxHandler",
     "SmartdnsHandler",
     "SurgeHandler",
     "UnboundHandler",
+    "discover_plugins",
     "get_handler",
     "register_handler",
 ]

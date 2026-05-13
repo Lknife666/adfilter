@@ -72,6 +72,9 @@ class RuleSet(StrEnum):
     SINGBOX = auto()      # sing-box JSON ruleset
     MIKROTIK = auto()     # MikroTik RouterOS /ip dns static script
     UNBOUND = auto()      # Unbound local-zone
+    # ── v0.4 new formats ──
+    QUANTUMULT = auto()   # Quantumult X filter
+    LOON = auto()         # Loon plugin rules
 
 
 class HandleType(StrEnum):
