@@ -1,81 +1,190 @@
-"""Unit tests for the notifier system (v0.3)."""
+"""Unit tests for the notifier system — registry and payload formatting."""
 
 from __future__ import annotations
 
-import os
-from unittest.mock import patch
-
 import pytest
 
-from adfilter.config import NotifierChannel, NotifierConfig
-from adfilter.notifier.base import NotifyPayload, _resolve_env, _create_notifier
+from adfilter.notifier.base import (
+    Notifier,
+    NotifyPayload,
+    _resolve_env,
+    get_notifier_class,
+    register_notifier,
+)
 from adfilter.stats import BuildReport, OutputReport
 
 
 class TestNotifyPayload:
-    def test_success_summary(self):
-        report = BuildReport(elapsed_ms=2500, fingerprint="abc123def456")
-        report.outputs = [
-            OutputReport(name="dns.txt", type="dns", count=1000, bytes=50000, path="/rule/dns.txt"),
-            OutputReport(name="clash.yaml", type="clash", count=800, bytes=40000, path="/rule/clash.yaml"),
-        ]
-        payload = NotifyPayload(success=True, report=report)
-        summary = payload.summary()
-        assert "completed" in summary.lower() or "✅" in summary
-        assert "1,800" in summary  # total rules
-        assert "2" in summary  # total files
-
     def test_failure_summary(self):
         payload = NotifyPayload(success=False, report=None, error_message="timeout")
         summary = payload.summary()
         assert "failed" in summary.lower() or "❌" in summary
         assert "timeout" in summary
 
-    def test_no_report_summary(self):
+    def test_success_summary_no_report(self):
         payload = NotifyPayload(success=True, report=None)
         summary = payload.summary()
-        assert "completed" in summary.lower()
+        assert "completed" in summary.lower() or "✅" in summary
+
+    def test_success_summary_with_report(self):
+        report = BuildReport(
+            elapsed_ms=2500,
+            fingerprint="abcdef123456789",
+            outputs=[
+                OutputReport(name="dns.txt", type="dns", count=1000, bytes=50000, path="/out/dns.txt"),
+                OutputReport(name="clash.yaml", type="clash", count=800, bytes=30000, path="/out/clash.yaml"),
+            ],
+        )
+        payload = NotifyPayload(success=True, report=report)
+        summary = payload.summary()
+        assert "1,800" in summary  # total rules
+        assert "2" in summary      # total files
+        assert "2500" in summary   # elapsed
+        assert "abcdef123456" in summary  # fingerprint truncated
+
+    def test_success_summary_empty_outputs(self):
+        report = BuildReport(elapsed_ms=100, outputs=[])
+        payload = NotifyPayload(success=True, report=report)
+        summary = payload.summary()
+        assert "0" in summary
 
 
 class TestResolveEnv:
-    def test_env_var_resolved(self):
-        with patch.dict(os.environ, {"MY_TOKEN": "secret123"}):
-            assert _resolve_env("${MY_TOKEN}") == "secret123"
+    def test_resolves_env_var(self, monkeypatch):
+        monkeypatch.setenv("MY_TOKEN", "secret123")
+        assert _resolve_env("${MY_TOKEN}") == "secret123"
 
-    def test_missing_env_var(self):
-        assert _resolve_env("${NONEXISTENT_VAR_XYZ}") == ""
+    def test_missing_env_var_returns_empty(self, monkeypatch):
+        monkeypatch.delenv("NONEXISTENT_VAR", raising=False)
+        assert _resolve_env("${NONEXISTENT_VAR}") == ""
 
     def test_plain_value_passthrough(self):
-        assert _resolve_env("plain-value") == "plain-value"
+        assert _resolve_env("just-a-string") == "just-a-string"
+
+    def test_partial_syntax_passthrough(self):
+        assert _resolve_env("${INCOMPLETE") == "${INCOMPLETE"
+        assert _resolve_env("INCOMPLETE}") == "INCOMPLETE}"
+
+
+class TestNotifierRegistry:
+    def test_builtin_telegram_registered(self):
+        # Importing the notifier package triggers registration
+        import adfilter.notifier  # noqa: F401
+        cls = get_notifier_class("telegram")
+        assert cls is not None
+        assert issubclass(cls, Notifier)
+
+    def test_builtin_discord_registered(self):
+        import adfilter.notifier  # noqa: F401
+        cls = get_notifier_class("discord")
+        assert cls is not None
+
+    def test_builtin_wecom_registered(self):
+        import adfilter.notifier  # noqa: F401
+        cls = get_notifier_class("wecom")
+        assert cls is not None
+
+    def test_unknown_type_returns_none(self):
+        cls = get_notifier_class("unknown_channel_xyz")
+        assert cls is None
+
+    def test_custom_registration(self):
+        class CustomNotifier(Notifier):
+            async def send(self, payload: NotifyPayload) -> bool:
+                return True
+
+        register_notifier("custom_test", CustomNotifier)
+        assert get_notifier_class("custom_test") is CustomNotifier
+
 
 
 class TestCreateNotifier:
+    """Test notifier factory creation logic."""
+
     def test_telegram_with_credentials(self):
+        from adfilter.config import NotifierChannel
+        from adfilter.notifier.base import _create_notifier
+
         channel = NotifierChannel(type="telegram", bot_token="token123", chat_id="12345")
         notifier = _create_notifier(channel)
         assert notifier is not None
 
     def test_telegram_missing_token(self):
+        from adfilter.config import NotifierChannel
+        from adfilter.notifier.base import _create_notifier
+
         channel = NotifierChannel(type="telegram", bot_token="", chat_id="12345")
         notifier = _create_notifier(channel)
         assert notifier is None
 
     def test_discord_with_url(self):
+        from adfilter.config import NotifierChannel
+        from adfilter.notifier.base import _create_notifier
+
         channel = NotifierChannel(type="discord", webhook_url="https://discord.com/api/webhooks/test")
         notifier = _create_notifier(channel)
         assert notifier is not None
 
     def test_discord_missing_url(self):
+        from adfilter.config import NotifierChannel
+        from adfilter.notifier.base import _create_notifier
+
         channel = NotifierChannel(type="discord", webhook_url="")
         notifier = _create_notifier(channel)
         assert notifier is None
 
     def test_wecom_with_key(self):
+        from adfilter.config import NotifierChannel
+        from adfilter.notifier.base import _create_notifier
+
         channel = NotifierChannel(type="wecom", webhook_key="key123")
         notifier = _create_notifier(channel)
         assert notifier is not None
 
-    def test_unknown_type(self):
-        channel = NotifierChannel(type="unknown_service")
+    def test_wecom_missing_key(self):
+        from adfilter.config import NotifierChannel
+        from adfilter.notifier.base import _create_notifier
+
+        channel = NotifierChannel(type="wecom", webhook_key="")
         notifier = _create_notifier(channel)
         assert notifier is None
+
+    def test_unknown_type_returns_none(self):
+        from adfilter.config import NotifierChannel
+        from adfilter.notifier.base import _create_notifier
+
+        channel = NotifierChannel(type="unknown_xyz")
+        notifier = _create_notifier(channel)
+        assert notifier is None
+
+
+class TestSendNotifications:
+    """Test the dispatcher logic."""
+
+    @pytest.mark.asyncio
+    async def test_disabled_does_nothing(self):
+        from adfilter.config import NotifierConfig
+        from adfilter.notifier.base import send_notifications
+
+        config = NotifierConfig(enable=False)
+        payload = NotifyPayload(success=True, report=None)
+        # Should return without error
+        await send_notifications(config, payload)
+
+    @pytest.mark.asyncio
+    async def test_success_skipped_when_on_success_false(self):
+        from adfilter.config import NotifierConfig
+        from adfilter.notifier.base import send_notifications
+
+        config = NotifierConfig(enable=True, on_success=False)
+        payload = NotifyPayload(success=True, report=None)
+        await send_notifications(config, payload)
+
+    @pytest.mark.asyncio
+    async def test_failure_skipped_when_on_failure_false(self):
+        from adfilter.config import NotifierConfig
+        from adfilter.notifier.base import send_notifications
+
+        config = NotifierConfig(enable=True, on_failure=False)
+        payload = NotifyPayload(success=False, report=None, error_message="err")
+        await send_notifications(config, payload)

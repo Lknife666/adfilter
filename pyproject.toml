@@ -1,6 +1,6 @@
 [project]
 name = "adfilter"
-version = "1.0.0"
+version = "0.4.0"
 description = "Ad filter rule aggregator & converter — 12 output formats, plugin system, allowlist, notifications"
 readme = "README.md"
 requires-python = ">=3.14"
@@ -38,11 +38,15 @@ Issues = "https://github.com/Lknife666/adfilter/issues"
 Changelog = "https://github.com/Lknife666/adfilter/blob/main/CHANGELOG.md"
 
 [project.scripts]
-adfilter = "adfilter.__main__:app"
+adfilter = "adfilter.cli:app"
 
 [project.entry-points."adfilter.handlers"]
 # Third-party handler plugins register here. Example:
 # my_format = "my_package.handler:MyHandler"
+
+[project.entry-points."adfilter.notifiers"]
+# Third-party notifier plugins register here. Example:
+# slack = "my_package.notifier:SlackNotifier"
 
 [build-system]
 requires = ["hatchling"]
@@ -70,7 +74,7 @@ omit = ["tests/*"]
 [tool.coverage.report]
 show_missing = true
 skip_empty = true
-fail_under = 50
+fail_under = 65
 
 [tool.ruff]
 line-length = 110

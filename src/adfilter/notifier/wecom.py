@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import aiohttp
 
-from .base import Notifier, NotifyPayload
+from .base import Notifier, NotifyPayload, register_notifier
 
 
 class WecomNotifier(Notifier):
@@ -21,3 +21,6 @@ class WecomNotifier(Notifier):
             session.post(self._url, json=data, timeout=aiohttp.ClientTimeout(total=10)) as resp,
         ):
             return resp.status == 200
+
+
+register_notifier("wecom", WecomNotifier)
