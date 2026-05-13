@@ -75,8 +75,9 @@
 | 我的需求 | 推荐方案 | 难度 |
 |---------|---------|------|
 | 只想用现成的规则，不想折腾 | 直接复制上方 [Rule Subscription](#rule-subscription) 表格中的链接到你的工具即可，**不需要安装任何东西** | 零门槛 |
-| 想自定义规则源（选择屏蔽哪些列表） | 用 Docker 一键部署，修改配置文件 | 简单 |
-| 想深度定制、二次开发 | 从源码安装 | 需要 Python 基础 |
+| 想自定义规则源 + 白名单，每天自动更新 | **Fork 本仓库 + GitHub Actions 自动构建**（强烈推荐） | 简单 |
+| 想在自己局域网搭建 HTTP 订阅服务 | Docker 部署 | 中等 |
+| 想深度定制、二次开发 | 从源码安装 或 一键脚本 | 需要 Python 基础 |
 
 ---
 
@@ -102,7 +103,152 @@
 
 ---
 
-### 方案二：Docker 部署（自定义规则源）
+### 方案二：Fork 仓库 + GitHub Actions 自动构建（强烈推荐）
+
+> **这是最推荐的个性化方案**：无需服务器、无需安装任何东西、免费、每天自动更新。
+> 你只需要一个 GitHub 账号。
+
+#### 原理
+
+```
+你 Fork 本仓库 → 修改配置文件 → GitHub Actions 每天自动构建
+                                         ↓
+                            你的私有 release 分支（规则文件）
+                                         ↓
+                         你的工具订阅你自己仓库的链接
+```
+
+#### 第 1 步：Fork 仓库
+
+1. 点击本页面右上角的 **Fork** 按钮
+2. 创建你自己的副本：`https://github.com/你的用户名/adfilter`
+
+#### 第 2 步：启用 GitHub Actions
+
+Fork 后默认 Actions 可能是禁用的：
+
+1. 进入你 fork 的仓库
+2. 点击顶部 **Actions** 标签
+3. 点击 **"I understand my workflows, go ahead and enable them"**
+
+#### 第 3 步：修改配置文件
+
+编辑 `config/application.yaml`（直接在 GitHub 网页上编辑即可）：
+
+```yaml
+application:
+  config:
+    input:
+      rule:
+        default:
+          # ===== 在这里选择你想要的规则源 =====
+          # 去广告（推荐）
+          - name: anti-ad
+            type: easylist
+            path: https://anti-ad.net/easylist.txt
+
+          # 隐私防护（推荐）
+          - name: easyprivacy
+            type: easylist
+            path: https://easylist.to/easylist/easyprivacy.txt
+
+          # 中国区补充（中国用户推荐）
+          - name: easylist-china
+            type: easylist
+            path: https://easylist-downloads.adblockplus.org/easylistchina.txt
+
+          # 恶意软件防护（可选）
+          - name: urlhaus
+            type: hosts
+            path: https://urlhaus.abuse.ch/downloads/hostfile/
+
+          # ===== 删除不需要的源，或添加你自己的 =====
+
+      # 白名单：把你不想被屏蔽的域名写在这里
+      allowlist:
+        - path: config/allowlist.txt
+
+    output:
+      path: ./rule
+      files:
+        - { name: dns.txt,          type: dns,        desc: "AdGuard Home DNS" }
+        - { name: easylist.txt,     type: easylist,   desc: "EasyList / ABP" }
+        - { name: clash.yaml,       type: clash,      desc: "Clash 规则" }
+        - { name: singbox.json,     type: singbox,    desc: "sing-box rule-set" }
+        - { name: surge.conf,       type: surge,      desc: "Surge 规则" }
+        - { name: quantumult.conf,  type: quantumult, desc: "Quantumult X" }
+        - { name: loon.conf,        type: loon,       desc: "Loon" }
+        - { name: dnsmasq.conf,     type: dnsmasq,    desc: "dnsmasq" }
+        - { name: smartdns.conf,    type: smartdns,   desc: "SmartDNS" }
+        - { name: hosts.txt,        type: hosts,      desc: "hosts 文件" }
+        - { name: mikrotik.rsc,     type: mikrotik,   desc: "MikroTik" }
+        - { name: unbound.conf,     type: unbound,    desc: "Unbound" }
+
+    optimizer:
+      enable: true
+      collapse_subdomains: true
+      drop_allow_shadowed_deny: true
+      normalize_idn: true
+```
+
+#### 第 4 步：创建白名单文件（可选）
+
+创建 `config/allowlist.txt`，写入不想被屏蔽的域名（每行一个）：
+
+```text
+# 被误杀的网站
+mybank.com
+login.partner-site.com
+
+# 开发需要
+localhost
+```
+
+#### 第 5 步：等待自动构建
+
+提交修改后，GitHub Actions 会：
+- **立即触发**一次构建（push 到 main 时）
+- 之后每 **8 小时**自动构建一次
+
+你也可以手动触发：进入 Actions → "Update Filters" → Run workflow
+
+#### 第 6 步：获取你的个人订阅链接
+
+构建完成后，规则文件发布到你仓库的 `release` 分支。订阅链接格式：
+
+```
+https://raw.githubusercontent.com/你的用户名/adfilter/release/dns.txt
+https://raw.githubusercontent.com/你的用户名/adfilter/release/clash.yaml
+https://raw.githubusercontent.com/你的用户名/adfilter/release/hosts.txt
+... (其他格式同理)
+```
+
+将这些链接粘贴到你的广告屏蔽工具中即可。
+
+#### 如何同步上游更新？
+
+当本仓库有新功能或 Bug 修复时，你可以同步：
+
+1. 在你的 Fork 仓库页面，点击 **Sync fork** 按钮
+2. 或者使用 GitHub CLI：`gh repo sync 你的用户名/adfilter`
+
+> 同步不会覆盖你的配置文件（只要你只修改了 `config/` 目录）。
+
+#### 进阶：修改构建频率
+
+编辑 `.github/workflows/auto-update.yml`，修改 `cron` 表达式：
+
+```yaml
+on:
+  schedule:
+    - cron: "0 */8 * * *"    # 每 8 小时（默认）
+    # - cron: "0 2 * * *"    # 每天凌晨 2 点
+    # - cron: "0 */4 * * *"  # 每 4 小时
+```
+
+---
+
+### 方案三：Docker 部署（自定义规则源）
 
 适合想自己选择屏蔽哪些列表、或在局域网内给多台设备提供规则的用户。
 
@@ -214,7 +360,30 @@ docker compose up -d
 
 ---
 
-### 方案三：从源码安装（高级用户）
+### 方案四：从源码安装（高级用户）
+
+#### 一键脚本安装（推荐）
+
+我们提供了一个交互式安装脚本，会引导你完成规则源选择、白名单配置、输出格式选择、定时任务设置：
+
+```bash
+# 下载并运行一键安装脚本
+curl -fsSL https://raw.githubusercontent.com/Lknife666/adfilter/main/setup.sh | bash
+
+# 或者指定安装目录
+curl -fsSL https://raw.githubusercontent.com/Lknife666/adfilter/main/setup.sh | bash -s -- ~/my-adfilter
+```
+
+脚本会自动：
+1. 安装 `uv`（Python 包管理器）
+2. 克隆项目并安装依赖
+3. 通过交互式菜单让你选择规则源、输出格式
+4. 配置白名单
+5. 生成个性化 `config/application.yaml`
+6. 执行首次构建
+7. 可选配置 cron 定时任务（每天自动更新）
+
+#### 手动安装
 
 #### 什么是 uv？
 
