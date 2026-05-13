@@ -1,106 +1,610 @@
-# adfilter
+<p align="center">
+  <h1 align="center">adfilter</h1>
+  <p align="center">
+    <strong>Ad-filter rule aggregator & multi-format converter</strong><br>
+    Fetch, parse, deduplicate, optimize, and emit ad-blocking rules across 12 output formats.
+  </p>
+  <p align="center">
+    <a href="https://github.com/Lknife666/adfilter/actions/workflows/ci.yml"><img src="https://github.com/Lknife666/adfilter/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+    <a href="https://github.com/Lknife666/adfilter/actions/workflows/auto-update.yml"><img src="https://github.com/Lknife666/adfilter/actions/workflows/auto-update.yml/badge.svg" alt="Auto Update"></a>
+    <a href="https://github.com/Lknife666/adfilter/pkgs/container/adfilter"><img src="https://img.shields.io/badge/ghcr.io-adfilter-blue" alt="Docker"></a>
+    <a href="https://github.com/Lknife666/adfilter/blob/main/LICENSE"><img src="https://img.shields.io/github/license/Lknife666/adfilter" alt="License"></a>
+    <img src="https://img.shields.io/badge/python-3.14%2B-blue" alt="Python">
+  </p>
+</p>
 
-Ad-filter rule aggregator & converter — a Python port of
-[Lknife-Ad-Filter](https://github.com/Lknife666/Lknife-Ad-Filter)
-with **20 features the upstream Java project does not have**.
+---
 
-Fetch rule lists (local or HTTP), parse them across many formats,
-de-duplicate, optimise, optionally DNS-probe each domain, and emit any
-combination of:
+## Table of Contents
 
-| Format | In upstream? | Output extension |
-| --- | --- | --- |
-| **EasyList / ABP** | ✅ | `easylist.txt` |
-| **AdGuard Home DNS** | ✅ | `dns.txt` |
-| **dnsmasq** | ✅ | `dnsmasq.conf` |
-| **smartdns** | ✅ | `smartdns.conf` |
-| **Clash** rule-provider | ✅ | `clash.yaml` |
-| **hosts** | ✅ | `hosts.txt` |
-| **Surge** domain-set | ❌ NEW | `surge.conf` |
-| **sing-box** rule-set | ❌ NEW | `singbox.json` |
-| **MikroTik** RouterOS script | ❌ NEW | `mikrotik.rsc` |
-| **Unbound** local-zone | ❌ NEW | `unbound.conf` |
+- [Features](#features)
+- [Supported Formats](#supported-formats)
+- [Architecture](#architecture)
+- [Quick Start](#quick-start)
+- [Installation](#installation)
+- [CLI Commands](#cli-commands)
+- [Configuration](#configuration)
+- [Optimizer](#optimizer)
+- [Notifications](#notifications)
+- [Docker Deployment](#docker-deployment)
+- [CI / Auto-update](#ci--auto-update)
+- [Subscribe URLs](#subscribe-urls)
+- [Plugin System](#plugin-system)
+- [Development](#development)
+- [Roadmap](#roadmap)
+- [License](#license)
 
-## 20 things this port adds
+---
 
-### New output formats (1–4)
-1. **Surge `domain-set`** — for Surge / Shadowrocket / Stash.
-2. **sing-box** native JSON rule-set (`version: 2`), ready for `sing-box rule-set compile`.
-3. **MikroTik RouterOS** `/ip dns static` script.
-4. **Unbound** `local-zone … always_nxdomain` fragments.
+## Features
 
-### New CLI commands (5–9)
-5. `adfilter convert a.txt b.yaml --from hosts --to clash` — one-shot conversion, no config.
-6. `adfilter diff old.txt new.txt --format dns` — by rule identity, not by text.
-7. `adfilter stats build-report.json` — pretty-print a build report.
-8. `adfilter doctor` — env + config health check with per-dependency status.
-9. `adfilter serve --dir rule/` — tiny local HTTP server to expose generated files to your LAN.
+A Python port of [Lknife-Ad-Filter](https://github.com/Lknife666/Lknife-Ad-Filter) with **20+ features** the upstream Java project does not have:
 
-### Ergonomics (10–12)
-10. `adfilter formats` — list every supported format in a rich table.
-11. `adfilter completion bash|zsh|fish|powershell` — print a shell-completion script.
-12. **Bounded concurrency** for HTTP fetches (`fetcher.http.max_concurrency`).
+| Category | Highlights |
+|----------|-----------|
+| **Formats** | 12 output formats including Surge, sing-box, MikroTik, Unbound, Quantumult X, Loon |
+| **CLI** | 9 commands: `run`, `validate`, `convert`, `diff`, `stats`, `doctor`, `serve`, `sources`, `init` |
+| **Performance** | Async concurrent HTTP fetching, conditional-GET cache, incremental builds |
+| **Quality** | Subdomain collapse, allow-shadow elimination, multi-source voting, IDN normalization |
+| **Observability** | JSON structured logs, Rich progress bar, build reports |
+| **Extensibility** | Plugin system via `entry_points` for handlers and notifiers |
+| **Security** | SSRF protection, non-root Docker, Bandit SAST, dependency auditing |
+| **Notifications** | Telegram, Discord, WeCom webhook alerts on build success/failure |
 
-### Performance & freshness (13–15)
-13. **Conditional-GET cache** with on-disk ETag / Last-Modified (`fetcher.http.cache_dir`). Skips re-downloading unchanged sources.
-14. **Incremental build** — skip the entire pipeline when the input fingerprint matches the last run (`--incremental`).
-15. **Docker image** auto-published to GHCR on every push to `main`.
+---
 
-### Output quality (16–19)
-16. **Subdomain collapse** — drop `||foo.bar.com^` when `||bar.com^` (overlay) already matches it.
-17. **Allow-shadow elimination** — drop DENY rules shadowed by an equivalent `@@allow`.
-18. **Multi-source voting** — only keep rules appearing in ≥ N distinct sources (`optimizer.min_source_votes`).
-19. **IDN / punycode normalisation** — `测试.com` and `xn--0zwm56d.com` treated as the same rule.
+## Supported Formats
 
-### Observability (20)
-20. **JSON build report** (`--report rule/build-report.json`) + **JSON structured logs** (`--json-logs`) + **Rich progress bar** (`--progress`).
+| Format | Extension | Compatibility | Input | Output |
+|--------|-----------|---------------|:-----:|:------:|
+| EasyList / ABP | `.txt` | Adblock Plus, uBlock Origin, AdGuard | Yes | Yes |
+| AdGuard Home DNS | `.txt` | AdGuard Home, AdGuard DNS | Yes | Yes |
+| dnsmasq | `.conf` | dnsmasq, OpenWrt, Pi-hole | Yes | Yes |
+| smartdns | `.conf` | SmartDNS | Yes | Yes |
+| Clash | `.yaml` | Clash, Clash Meta, Stash | Yes | Yes |
+| hosts | `.txt` | All OS, Pi-hole, StevenBlack/hosts | Yes | Yes |
+| **Surge** | `.conf` | Surge, Shadowrocket, Stash | Yes | Yes |
+| **sing-box** | `.json` | sing-box rule-set (v2) | Yes | Yes |
+| **MikroTik** | `.rsc` | MikroTik RouterOS v6/v7 | Yes | Yes |
+| **Unbound** | `.conf` | Unbound DNS resolver | Yes | Yes |
+| **Quantumult X** | `.conf` | Quantumult X | Yes | Yes |
+| **Loon** | `.conf` | Loon | Yes | Yes |
 
-## Requirements
+> **Bold** = formats not available in the upstream Java project.
 
-Python **3.14+**. See [`pyproject.toml`](pyproject.toml) for dependencies.
+---
 
-## Quick start
+## Architecture
+
+```
+Config (YAML)
+    |
+    v
+[Parser] ─── Fetcher (HTTP/Local) ─── Handler.parse() ── Rule objects
+    |                                                          |
+    v                                                          v
+[Optimizer] ── subdomain collapse, voting, IDN, allowlist ── optimized Rules
+    |
+    v
+[Writer] ── Handler.format() ── per-format output files
+    |
+    +── dns.txt
+    +── clash.yaml
+    +── singbox.json
+    +── surge.conf
+    +── ...
+```
+
+**Key design decisions:**
+- **Unified Rule model** — all formats parse into one `Rule` dataclass enabling cross-format conversion
+- **Streaming pipeline** — `AsyncIterator[Rule]` keeps memory constant regardless of source size
+- **Handler registry** — new formats require only one file + `register_handler()` call
+- **Plugin architecture** — third-party handlers/notifiers via Python `entry_points`
+
+See [`docs/architecture.md`](docs/architecture.md) for the complete design document.
+
+---
+
+## Quick Start
 
 ```bash
+# Install with uv (recommended)
 uv sync
 uv run adfilter run --config config/application.yaml --progress --report rule/build-report.json
+
+# View the build report
 uv run adfilter stats rule/build-report.json
+
+# Serve rules over HTTP for LAN devices
 uv run adfilter serve --dir rule/
 ```
 
-Without `uv`:
+**Without uv:**
 
 ```bash
 pip install -e .
 adfilter run -c config/application.yaml
 ```
 
+**One-shot format conversion (no config needed):**
+
+```bash
+adfilter convert hosts.txt clash.yaml --from hosts --to clash
+```
+
+---
+
+## Installation
+
+### From source (recommended)
+
+```bash
+git clone https://github.com/Lknife666/adfilter.git
+cd adfilter
+uv sync            # or: pip install -e .
+```
+
+### From PyPI
+
+```bash
+pip install adfilter
+```
+
+### Docker
+
+```bash
+docker pull ghcr.io/lknife666/adfilter:latest
+docker run --rm -v ./config:/app/config -v ./rule:/app/rule \
+  ghcr.io/lknife666/adfilter run --config /app/config/application.yaml
+```
+
+### Requirements
+
+- Python **3.14+**
+- Dependencies: `aiohttp`, `pydantic`, `pyyaml`, `typer`, `rich`, `mmh3`, `aiodns`
+
+---
+
+## CLI Commands
+
+| Command | Description |
+|---------|-------------|
+| `adfilter run` | Run the full fetch/parse/optimize/emit pipeline |
+| `adfilter validate` | Validate config file and exit |
+| `adfilter convert <src> <dst>` | One-shot file-to-file format conversion |
+| `adfilter diff <old> <new>` | Compare two rule files by rule identity |
+| `adfilter stats <report.json>` | Pretty-print a build report |
+| `adfilter doctor` | Environment + config health check |
+| `adfilter serve --dir rule/` | Serve generated files over HTTP |
+| `adfilter sources list\|add\|remove` | Manage rule sources from built-in catalog |
+| `adfilter init --preset cn\|jp\|global` | Initialize config from a regional preset |
+| `adfilter formats` | List all supported formats |
+| `adfilter completion bash\|zsh\|fish` | Print shell completion script |
+
+### Examples
+
+```bash
+# Full pipeline with progress bar and JSON report
+adfilter run -c config/application.yaml --progress --report rule/build-report.json
+
+# Incremental build (skip if inputs unchanged)
+adfilter run -c config/application.yaml --incremental
+
+# JSON structured logs for production
+adfilter run -c config/application.yaml --json-logs --log-level INFO
+
+# Convert between formats
+adfilter convert easylist.txt surge.conf --from easylist --to surge
+
+# Semantic diff (by rule identity, not text)
+adfilter diff old_dns.txt new_dns.txt --format dns
+
+# Initialize config for Chinese users
+adfilter init --preset cn --output config/application.yaml
+
+# Add sources from the built-in catalog
+adfilter sources add anti-ad easyprivacy urlhaus
+```
+
+---
+
 ## Configuration
 
-See [`config/application-example.yaml`](config/application-example.yaml) for a
-fully documented example. The top-level shape mirrors the original Java project
-(`application.config.{input,output,fetcher,parser}`) plus a new `optimizer:` block.
+Config file: `config/application.yaml` (see [`config/application-example.yaml`](config/application-example.yaml) for full reference)
 
-Placeholders in `file_header`: `${date}` · `${name}` · `${desc}` · `${type}` · `${total}`.
+### Minimal Config
+
+```yaml
+application:
+  config:
+    input:
+      rule:
+        default:
+          - name: anti-ad
+            type: easylist
+            path: https://anti-ad.net/easylist.txt
+
+    output:
+      path: ./rule
+      files:
+        - { name: dns.txt, type: dns }
+        - { name: clash.yaml, type: clash }
+        - { name: hosts.txt, type: hosts }
+```
+
+### Full Config Structure
+
+```yaml
+application:
+  config:
+    input:
+      rule:
+        <group_name>:
+          - name: <unique_id>
+            type: easylist|dns|dnsmasq|smartdns|clash|hosts|surge|singbox|mikrotik|unbound|quantumult|loon
+            path: <http_url_or_local_path>
+            group: <optional_group_tag>
+      allowlist:                          # v0.3: global allowlist
+        - path: config/allowlist.txt
+
+    output:
+      path: ./rule
+      file_header: |                      # Placeholders: ${date} ${name} ${desc} ${type} ${total}
+        ADFS AdBlock ${type}
+        Last Modified: ${date}
+        Total Size: ${total}
+      files:
+        - name: dns.txt
+          type: dns
+          desc: "AdGuard Home DNS filter"
+          filter: [basic, wildcard]       # Accepted rule types (empty = all)
+          rule: [source1, source2]        # Limit to specific sources (empty = all)
+          groups: [ads, privacy]          # Limit to source groups (empty = all)
+
+    fetcher:
+      http:
+        timeout_seconds: 60
+        max_retries: 3
+        max_concurrency: 8
+        cache_dir: .cache/http            # Conditional-GET cache (null = disabled)
+        on_failure: cache_then_skip       # fail_fast | cache_then_skip | skip_always
+        max_cache_age_hours: 72
+
+    parser:
+      min_length: 4
+      max_length: 1024
+      alert_length: 6
+      incremental_build: false
+      progress: false
+      json_logs: false
+      dns_probe:
+        enable: false
+        timeout_seconds: 5.0
+
+    optimizer:
+      enable: true
+      collapse_subdomains: true
+      drop_allow_shadowed_deny: true
+      min_source_votes: 1
+      normalize_idn: true
+
+    notifier:
+      enable: false
+      on_success: true
+      on_failure: true
+      channels:
+        - type: telegram
+          bot_token: ${TELEGRAM_BOT_TOKEN}
+          chat_id: ${TELEGRAM_CHAT_ID}
+```
+
+### Environment Variable Override
+
+All config values can be overridden via environment variables with `ADFILTER_` prefix:
+
+```bash
+export ADFILTER_OUTPUT__PATH=./dist
+export ADFILTER_FETCHER__HTTP__TIMEOUT_SECONDS=120
+```
+
+### Regional Presets
+
+```bash
+adfilter init --preset cn      # Chinese users (anti-ad, easylist-china, cjx-annoyance)
+adfilter init --preset jp      # Japanese users (280blocker)
+adfilter init --preset global  # International (easylist, easyprivacy, peter-lowe)
+```
+
+---
+
+## Optimizer
+
+The optimizer runs after parsing and before writing. All optimizations are optional and configurable:
+
+| Optimization | Config Key | Description |
+|-------------|------------|-------------|
+| Subdomain collapse | `collapse_subdomains` | Drop `sub.example.com` when `example.com` (overlay) already covers it |
+| Allow-shadow elimination | `drop_allow_shadowed_deny` | Remove DENY rules shadowed by an equivalent ALLOW rule |
+| Multi-source voting | `min_source_votes` | Only keep rules appearing in N+ distinct sources |
+| IDN normalization | `normalize_idn` | Normalize unicode domains to ASCII punycode before dedup |
+| Allowlist | `input.allowlist` | Remove DENY rules matching allowlisted domains (exact + suffix) |
+
+---
+
+## Notifications
+
+Get notified when builds succeed or fail via webhook:
+
+| Channel | Config Fields |
+|---------|--------------|
+| Telegram | `bot_token`, `chat_id` |
+| Discord | `webhook_url` |
+| WeCom | `webhook_key` |
+
+All sensitive values support `${ENV_VAR}` syntax for safe secret management.
+
+**Third-party notifiers** can be added via the `adfilter.notifiers` entry point (see [Plugin System](#plugin-system)).
+
+---
+
+## Docker Deployment
+
+### Docker Compose (recommended)
+
+```yaml
+services:
+  adfilter:
+    image: ghcr.io/lknife666/adfilter:latest
+    volumes:
+      - ./config:/app/config:ro
+      - rule_data:/app/rule
+      - cache_data:/app/.cache
+    environment:
+      - TZ=Asia/Shanghai
+    ports:
+      - "8787:8787"
+    command: ["serve", "--dir", "/app/rule", "--host", "0.0.0.0",
+              "--auto-refresh", "--refresh-interval", "480",
+              "--config", "/app/config/application.yaml"]
+    healthcheck:
+      test: ["CMD", "adfilter", "doctor", "--config", "/app/config/application.yaml"]
+      interval: 60s
+    restart: unless-stopped
+
+volumes:
+  rule_data:
+  cache_data:
+```
+
+### One-shot Build
+
+```bash
+docker run --rm \
+  -v ./config:/app/config:ro \
+  -v ./rule:/app/rule \
+  ghcr.io/lknife666/adfilter run --config /app/config/application.yaml --progress
+```
+
+### Image Features
+
+- Multi-stage build (slim runtime image)
+- Non-root user (`adfilter`)
+- Built-in healthcheck (`adfilter doctor`)
+- Auto-published on every push to `main`
+
+---
 
 ## CI / Auto-update
 
-Workflow: [`auto-update.yml`](.github/workflows/auto-update.yml)
+| Workflow | Trigger | Purpose |
+|---------|---------|---------|
+| [`ci.yml`](.github/workflows/ci.yml) | PR + push to main | Run tests + coverage |
+| [`auto-update.yml`](.github/workflows/auto-update.yml) | Every 8h + push to main | Build rules, publish to `release` branch, push Docker image |
+| [`release.yml`](.github/workflows/release.yml) | Tag `v*` | Publish to PyPI + GitHub Release |
+| [`security.yml`](.github/workflows/security.yml) | Push/PR + weekly | pip-audit + Bandit SAST |
 
-- Runs every **8 hours** and on every `main` push
-- Publishes all 10 output files to an orphan **`release`** branch (clean, no source leak)
-- Also uploads a debugging artifact and a Docker image (`ghcr.io/Lknife666/adfilter:latest`)
+The auto-update workflow:
+1. Lints the source code
+2. Builds all 12 output format files
+3. Publishes them to the orphan `release` branch (no source code leak)
+4. Uploads debugging artifact (7-day retention)
+5. Pushes Docker image to GHCR
 
-### Subscribe URLs
+---
 
-Replace `main` with `release` in any raw URL:
+## Subscribe URLs
+
+Replace `main` with `release` in any raw GitHub URL:
+
+| Format | Subscribe URL |
+|--------|--------------|
+| AdGuard Home | `https://raw.githubusercontent.com/Lknife666/adfilter/release/dns.txt` |
+| Clash | `https://raw.githubusercontent.com/Lknife666/adfilter/release/clash.yaml` |
+| sing-box | `https://raw.githubusercontent.com/Lknife666/adfilter/release/singbox.json` |
+| Surge | `https://raw.githubusercontent.com/Lknife666/adfilter/release/surge.conf` |
+| dnsmasq | `https://raw.githubusercontent.com/Lknife666/adfilter/release/dnsmasq.conf` |
+| hosts | `https://raw.githubusercontent.com/Lknife666/adfilter/release/hosts.txt` |
+| EasyList | `https://raw.githubusercontent.com/Lknife666/adfilter/release/easylist.txt` |
+| smartdns | `https://raw.githubusercontent.com/Lknife666/adfilter/release/smartdns.conf` |
+| MikroTik | `https://raw.githubusercontent.com/Lknife666/adfilter/release/mikrotik.rsc` |
+| Unbound | `https://raw.githubusercontent.com/Lknife666/adfilter/release/unbound.conf` |
+
+---
+
+## Plugin System
+
+### Custom Handlers
+
+Third-party packages can register format handlers:
+
+```toml
+# In your package's pyproject.toml
+[project.entry-points."adfilter.handlers"]
+my_format = "my_package.handler:MyFormatHandler"
+```
+
+```python
+# my_package/handler.py
+from adfilter.handler.base import Handler, register_handler
+from adfilter.constants import RuleSet
+from adfilter.model import Rule
+
+class MyFormatHandler(Handler):
+    rule_set = RuleSet.MY_FORMAT  # Add to constants.py or use existing
+
+    def __init__(self):
+        register_handler(self.rule_set, self)
+
+    def parse(self, line: str) -> Rule: ...
+    def format(self, rule: Rule) -> str | None: ...
+    def is_comment(self, line: str) -> bool: ...
+    def commented(self, value: str) -> str: ...
+```
+
+### Custom Notifiers
+
+```toml
+[project.entry-points."adfilter.notifiers"]
+slack = "my_package.notifier:SlackNotifier"
+```
+
+```python
+from adfilter.notifier.base import Notifier, NotifyPayload, register_notifier
+
+class SlackNotifier(Notifier):
+    def __init__(self, webhook_url: str):
+        self._url = webhook_url
+
+    async def send(self, payload: NotifyPayload) -> bool:
+        # Send to Slack...
+        return True
+
+register_notifier("slack", SlackNotifier)
+```
+
+---
+
+## Development
+
+### Prerequisites
+
+- Python **3.14+**
+- [uv](https://docs.astral.sh/uv/) (recommended) or pip
+
+### Setup
+
+```bash
+git clone https://github.com/Lknife666/adfilter.git
+cd adfilter
+uv sync --group dev
+```
+
+### Running Tests
+
+```bash
+uv run pytest                              # All tests
+uv run pytest --cov=adfilter --cov-report=term  # With coverage
+uv run pytest tests/unit/test_optimizer.py  # Specific file
+```
+
+### Linting
+
+```bash
+uvx ruff check src/
+uvx ruff format --check src/
+```
+
+### Project Structure
 
 ```
-https://raw.githubusercontent.com/Lknife666/adfilter/release/dns.txt
-https://raw.githubusercontent.com/Lknife666/adfilter/release/clash.yaml
-https://raw.githubusercontent.com/Lknife666/adfilter/release/singbox.json
+src/adfilter/
+├── __init__.py             # Version (importlib.metadata)
+├── __main__.py             # Entry point (delegates to cli/)
+├── cli/                    # CLI commands (Typer)
+│   ├── __init__.py         # App instance + command registration
+│   ├── run.py              # run + validate commands + pipeline
+│   ├── convert.py          # convert command
+│   ├── diff.py             # diff command
+│   ├── info.py             # stats, doctor, formats, completion
+│   ├── serve.py            # serve command
+│   └── sources.py          # sources + init commands
+├── config.py               # Pydantic configuration models
+├── constants.py            # Enums, symbols
+├── model.py                # Rule data model (unified)
+├── parser.py               # Fetch -> parse -> filter -> dedupe
+├── optimizer.py            # Post-parse optimizations
+├── writer.py               # Output file writing + sing-box assembly
+├── stats.py                # Build report model
+├── logging_setup.py        # JSON/Rich log configuration
+├── dns_prober.py           # Async DNS existence checker
+├── util.py                 # String utilities
+├── regex_patterns.py       # Compiled regex patterns
+├── fetcher/                # Input fetchers
+│   ├── base.py             # Abstract Fetcher
+│   ├── factory.py          # Fetcher selection
+│   ├── http.py             # HTTP (cache, retry, SSRF guard)
+│   └── local.py            # Local filesystem
+├── handler/                # Format handlers (12 formats)
+│   ├── base.py             # Abstract Handler + registry
+│   ├── easylist_handler.py
+│   ├── dns_handler.py
+│   └── ...                 # (12 handlers total)
+├── notifier/               # Webhook notifications
+│   ├── base.py             # Abstract + registry + dispatcher
+│   ├── telegram.py
+│   ├── discord.py
+│   └── wecom.py
+└── data/                   # Built-in data
+    ├── source_catalog.yaml # Known rule sources
+    └── presets/            # Regional config presets
+        ├── cn.yaml
+        ├── jp.yaml
+        └── global.yaml
 ```
+
+### Adding a New Output Format
+
+1. Create `src/adfilter/handler/yourformat_handler.py`
+2. Subclass `Handler`, implement `parse()`, `format()`, `is_comment()`, `commented()`
+3. Call `register_handler(RuleSet.YOURFORMAT, self)` in `__init__`
+4. Add `RuleSet.YOURFORMAT` to `constants.py`
+5. Import in `handler/__init__.py`
+6. Add tests in `tests/unit/handler/test_yourformat.py`
+7. Document in `docs/formats.md`
+
+### Commit Convention
+
+```
+feat: new feature
+fix: bug fix
+perf: performance improvement
+docs: documentation
+refactor: code refactoring
+test: add/update tests
+chore: build/CI changes
+```
+
+---
+
+## Roadmap
+
+See [`ROADMAP.md`](ROADMAP.md) for the detailed iteration plan including:
+
+- **v0.4** (current) — Plugin system, source catalog, regional presets, Quantumult X & Loon formats
+- **v1.0** — PyPI release, Helm chart, performance benchmarks, security hardening, i18n
+
+---
+
+## Security
+
+- **SSRF Protection**: HTTP fetcher blocks requests to private/reserved IP ranges (RFC 1918, loopback, link-local)
+- **Non-root Docker**: Container runs as unprivileged `adfilter` user
+- **SAST**: Weekly Bandit scans via CI
+- **Dependency Audit**: Weekly pip-audit + Dependabot auto-updates
+- **Secret Management**: All tokens support `${ENV_VAR}` syntax, never hardcoded
+
+---
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+[MIT](LICENSE) — Copyright (c) 2024-2026 Lknife666
