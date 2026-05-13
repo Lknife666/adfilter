@@ -2,9 +2,9 @@
 FROM python:3.14-slim AS builder
 WORKDIR /app
 RUN pip install --no-cache-dir uv
-COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev --no-editable || uv sync --no-dev --no-editable
+COPY pyproject.toml uv.lock README.md ./
 COPY src/ src/
+RUN uv sync --frozen --no-dev --no-editable || uv sync --no-dev --no-editable
 
 # ── Runtime stage ──
 FROM python:3.14-slim AS runtime
