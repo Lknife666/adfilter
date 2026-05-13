@@ -41,7 +41,6 @@ Changelog = "https://github.com/Lknife666/adfilter/blob/main/CHANGELOG.md"
 adfilter = "adfilter.cli:app"
 
 [project.entry-points."adfilter.handlers"]
-[project.entry-points."adfilter.handlers"]
 # Third-party handler plugins register here. Example:
 # my_format = "my_package.handler:MyHandler"
 
