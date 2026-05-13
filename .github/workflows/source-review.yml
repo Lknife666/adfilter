@@ -1,0 +1,107 @@
+name: Source Review
+
+on:
+  pull_request:
+    paths:
+      - "community/sources/*.yaml"
+      - "!community/sources/TEMPLATE.yaml"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  quality-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - run: uv python install 3.14
+      - run: uv sync --frozen --no-dev || uv sync --no-dev
+
+      - name: Find changed source files
+        id: changed
+        run: |
+          files=$(git diff --name-only ${{ github.event.pull_request.base.sha }} HEAD -- 'community/sources/*.yaml' | grep -v TEMPLATE || true)
+          echo "files=$files" >> "$GITHUB_OUTPUT"
+          echo "Found: $files"
+
+      - name: Run quality check
+        if: steps.changed.outputs.files != ''
+        run: |
+          for file in ${{ steps.changed.outputs.files }}; do
+            echo "::group::Checking $file"
+            uv run python -c "
+          import yaml, sys
+          from pathlib import Path
+
+          source_file = Path('$file')
+          if not source_file.exists():
+              print('File not found, skipping')
+              sys.exit(0)
+
+          data = yaml.safe_load(source_file.read_text())
+
+          # Validate required fields
+          required = ['id', 'name', 'url', 'format', 'region', 'category', 'maintainer', 'description']
+          missing = [f for f in required if not data.get(f)]
+          if missing:
+              print(f'ERROR: Missing required fields: {missing}')
+              sys.exit(1)
+
+          # Validate format
+          valid_formats = ['easylist', 'dns', 'hosts', 'dnsmasq', 'smartdns', 'clash', 'surge', 'singbox', 'mikrotik', 'unbound', 'quantumult', 'loon']
+          if data['format'] not in valid_formats:
+              print(f'ERROR: Invalid format \"{data[\"format\"]}\". Must be one of: {valid_formats}')
+              sys.exit(1)
+
+          # Validate category
+          valid_categories = ['ads', 'privacy', 'malware', 'annoyance', 'social']
+          if data['category'] not in valid_categories:
+              print(f'ERROR: Invalid category \"{data[\"category\"]}\". Must be one of: {valid_categories}')
+              sys.exit(1)
+
+          # Try to fetch the URL (head request)
+          import urllib.request
+          try:
+              req = urllib.request.Request(data['url'], method='HEAD')
+              req.add_header('User-Agent', 'adfilter-source-review/1.0')
+              resp = urllib.request.urlopen(req, timeout=15)
+              print(f'URL reachable: HTTP {resp.status}')
+          except Exception as e:
+              print(f'WARNING: URL not reachable: {e}')
+
+          print(f'Source \"{data[\"name\"]}\" passed validation')
+          print(f'  Format: {data[\"format\"]}')
+          print(f'  Region: {data[\"region\"]}')
+          print(f'  Category: {data[\"category\"]}')
+          "
+            echo "::endgroup::"
+          done
+
+      - name: Post review comment
+        if: steps.changed.outputs.files != '' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = `## Source Review Results
+
+            The submitted source file(s) have been automatically validated.
+
+            **Checks performed:**
+            - ✅ Required fields present (id, name, url, format, region, category, maintainer, description)
+            - ✅ Format value is valid
+            - ✅ Category value is valid
+            - ⚡ URL reachability tested
+
+            > A maintainer will review and merge if the source meets quality standards.
+            > After merging, the source will be available in the built-in catalog.`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body,
+            });

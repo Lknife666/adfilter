@@ -1,0 +1,23 @@
+# ─── Community Source Contribution Template ───
+# Copy this file, rename to your source ID (e.g., my-adlist.yaml),
+# fill in the fields, and submit a Pull Request.
+#
+# Your source will be automatically quality-checked by CI.
+
+id: my-source-id              # Unique ID (lowercase, hyphens only)
+name: "My Ad Blocking List"   # Human-readable name
+url: https://example.com/rules.txt  # Direct URL to the rule file
+format: easylist              # One of: easylist, dns, hosts, dnsmasq, smartdns, clash, surge, singbox
+region: global                # One of: global, cn, jp, eu, us (or other ISO codes)
+category: ads                 # One of: ads, privacy, malware, annoyance, social
+maintainer: "github-username" # Your GitHub username
+description: "Brief description of what this list blocks"
+update_frequency: daily       # How often the source is updated: hourly, daily, weekly, monthly
+
+# ─── The following fields are filled by automated review ───
+# review:
+#   status: pending           # pending → approved → merged
+#   quality_score: null
+#   rule_count: null
+#   dead_domain_ratio: null
+#   overlap_ratio: null
