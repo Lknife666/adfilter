@@ -15,6 +15,32 @@
 
 ---
 
+## Rule Subscription
+
+> Rules are auto-generated every **8 hours** via GitHub Actions and published to the [`release`](https://github.com/Lknife666/adfilter/tree/release) branch.
+>
+> Last updated: ![Auto Update](https://github.com/Lknife666/adfilter/actions/workflows/auto-update.yml/badge.svg)
+
+| Format | Application | Subscribe URL |
+|--------|-------------|---------------|
+| AdGuard Home DNS | AdGuard Home, AdGuard DNS | [`dns.txt`](https://raw.githubusercontent.com/Lknife666/adfilter/release/dns.txt) |
+| EasyList / ABP | Adblock Plus, uBlock Origin, AdGuard Extension | [`easylist.txt`](https://raw.githubusercontent.com/Lknife666/adfilter/release/easylist.txt) |
+| Clash | Clash, Clash Meta, Stash | [`clash.yaml`](https://raw.githubusercontent.com/Lknife666/adfilter/release/clash.yaml) |
+| sing-box | sing-box rule-set (v2) | [`singbox.json`](https://raw.githubusercontent.com/Lknife666/adfilter/release/singbox.json) |
+| Surge | Surge, Shadowrocket, Stash | [`surge.conf`](https://raw.githubusercontent.com/Lknife666/adfilter/release/surge.conf) |
+| Quantumult X | Quantumult X | [`quantumult.conf`](https://raw.githubusercontent.com/Lknife666/adfilter/release/quantumult.conf) |
+| Loon | Loon | [`loon.conf`](https://raw.githubusercontent.com/Lknife666/adfilter/release/loon.conf) |
+| dnsmasq | dnsmasq, OpenWrt | [`dnsmasq.conf`](https://raw.githubusercontent.com/Lknife666/adfilter/release/dnsmasq.conf) |
+| smartdns | SmartDNS | [`smartdns.conf`](https://raw.githubusercontent.com/Lknife666/adfilter/release/smartdns.conf) |
+| hosts | All OS, Pi-hole | [`hosts.txt`](https://raw.githubusercontent.com/Lknife666/adfilter/release/hosts.txt) |
+| MikroTik | MikroTik RouterOS v6/v7 | [`mikrotik.rsc`](https://raw.githubusercontent.com/Lknife666/adfilter/release/mikrotik.rsc) |
+| Unbound | Unbound DNS resolver | [`unbound.conf`](https://raw.githubusercontent.com/Lknife666/adfilter/release/unbound.conf) |
+
+> **Usage**: Copy the subscribe URL and paste it into your ad-blocking tool's subscription settings.  
+> See [`release` branch `build-report.json`](https://raw.githubusercontent.com/Lknife666/adfilter/release/build-report.json) for per-file statistics.
+
+---
+
 ## Table of Contents
 
 - [Features](#features)
@@ -28,17 +54,16 @@
 - [Notifications](#notifications)
 - [Docker Deployment](#docker-deployment)
 - [CI / Auto-update](#ci--auto-update)
-- [Subscribe URLs](#subscribe-urls)
 - [Plugin System](#plugin-system)
 - [Development](#development)
 - [Roadmap](#roadmap)
+- [Security](#security)
 - [License](#license)
+- [Acknowledgments](#acknowledgments)
 
 ---
 
 ## Features
-
-A Python port of [Lknife-Ad-Filter](https://github.com/Lknife666/Lknife-Ad-Filter) with **20+ features** the upstream Java project does not have:
 
 | Category | Highlights |
 |----------|-----------|
@@ -63,14 +88,12 @@ A Python port of [Lknife-Ad-Filter](https://github.com/Lknife666/Lknife-Ad-Filte
 | smartdns | `.conf` | SmartDNS | Yes | Yes |
 | Clash | `.yaml` | Clash, Clash Meta, Stash | Yes | Yes |
 | hosts | `.txt` | All OS, Pi-hole, StevenBlack/hosts | Yes | Yes |
-| **Surge** | `.conf` | Surge, Shadowrocket, Stash | Yes | Yes |
-| **sing-box** | `.json` | sing-box rule-set (v2) | Yes | Yes |
-| **MikroTik** | `.rsc` | MikroTik RouterOS v6/v7 | Yes | Yes |
-| **Unbound** | `.conf` | Unbound DNS resolver | Yes | Yes |
-| **Quantumult X** | `.conf` | Quantumult X | Yes | Yes |
-| **Loon** | `.conf` | Loon | Yes | Yes |
-
-> **Bold** = formats not available in the upstream Java project.
+| Surge | `.conf` | Surge, Shadowrocket, Stash | Yes | Yes |
+| sing-box | `.json` | sing-box rule-set (v2) | Yes | Yes |
+| MikroTik | `.rsc` | MikroTik RouterOS v6/v7 | Yes | Yes |
+| Unbound | `.conf` | Unbound DNS resolver | Yes | Yes |
+| Quantumult X | `.conf` | Quantumult X | Yes | Yes |
+| Loon | `.conf` | Loon | Yes | Yes |
 
 ---
 
@@ -244,12 +267,12 @@ application:
             type: easylist|dns|dnsmasq|smartdns|clash|hosts|surge|singbox|mikrotik|unbound|quantumult|loon
             path: <http_url_or_local_path>
             group: <optional_group_tag>
-      allowlist:                          # v0.3: global allowlist
+      allowlist:
         - path: config/allowlist.txt
 
     output:
       path: ./rule
-      file_header: |                      # Placeholders: ${date} ${name} ${desc} ${type} ${total}
+      file_header: |
         ADFS AdBlock ${type}
         Last Modified: ${date}
         Total Size: ${total}
@@ -257,17 +280,17 @@ application:
         - name: dns.txt
           type: dns
           desc: "AdGuard Home DNS filter"
-          filter: [basic, wildcard]       # Accepted rule types (empty = all)
-          rule: [source1, source2]        # Limit to specific sources (empty = all)
-          groups: [ads, privacy]          # Limit to source groups (empty = all)
+          filter: [basic, wildcard]
+          rule: [source1, source2]
+          groups: [ads, privacy]
 
     fetcher:
       http:
         timeout_seconds: 60
         max_retries: 3
         max_concurrency: 8
-        cache_dir: .cache/http            # Conditional-GET cache (null = disabled)
-        on_failure: cache_then_skip       # fail_fast | cache_then_skip | skip_always
+        cache_dir: .cache/http
+        on_failure: cache_then_skip
         max_cache_age_hours: 72
 
     parser:
@@ -412,25 +435,6 @@ The auto-update workflow:
 
 ---
 
-## Subscribe URLs
-
-Replace `main` with `release` in any raw GitHub URL:
-
-| Format | Subscribe URL |
-|--------|--------------|
-| AdGuard Home | `https://raw.githubusercontent.com/Lknife666/adfilter/release/dns.txt` |
-| Clash | `https://raw.githubusercontent.com/Lknife666/adfilter/release/clash.yaml` |
-| sing-box | `https://raw.githubusercontent.com/Lknife666/adfilter/release/singbox.json` |
-| Surge | `https://raw.githubusercontent.com/Lknife666/adfilter/release/surge.conf` |
-| dnsmasq | `https://raw.githubusercontent.com/Lknife666/adfilter/release/dnsmasq.conf` |
-| hosts | `https://raw.githubusercontent.com/Lknife666/adfilter/release/hosts.txt` |
-| EasyList | `https://raw.githubusercontent.com/Lknife666/adfilter/release/easylist.txt` |
-| smartdns | `https://raw.githubusercontent.com/Lknife666/adfilter/release/smartdns.conf` |
-| MikroTik | `https://raw.githubusercontent.com/Lknife666/adfilter/release/mikrotik.rsc` |
-| Unbound | `https://raw.githubusercontent.com/Lknife666/adfilter/release/unbound.conf` |
-
----
-
 ## Plugin System
 
 ### Custom Handlers
@@ -450,7 +454,7 @@ from adfilter.constants import RuleSet
 from adfilter.model import Rule
 
 class MyFormatHandler(Handler):
-    rule_set = RuleSet.MY_FORMAT  # Add to constants.py or use existing
+    rule_set = RuleSet.MY_FORMAT
 
     def __init__(self):
         register_handler(self.rule_set, self)
@@ -608,3 +612,24 @@ See [`ROADMAP.md`](ROADMAP.md) for the detailed iteration plan including:
 ## License
 
 [MIT](LICENSE) — Copyright (c) 2024-2026 Lknife666
+
+---
+
+## Acknowledgments
+
+adfilter aggregates and converts rules from the following outstanding open-source filter lists. Huge thanks to their maintainers:
+
+| Project | Description | Repository |
+|---------|-------------|------------|
+| **anti-AD** | Chinese ad filter list | [privacy-protection-tools/anti-AD](https://github.com/privacy-protection-tools/anti-AD) |
+| **EasyList** | ABP official ad blocking list | [easylist/easylist](https://github.com/easylist/easylist) |
+| **EasyList China** | EasyList supplement for China | [easylist/easylistchina](https://github.com/easylist/easylistchina) |
+| **EasyPrivacy** | ABP official privacy/tracking list | [easylist/easylist](https://github.com/easylist/easylist) |
+| **CJX's Annoyance List** | Chinese anti-annoyance filters | [cjx82630/cjxlist](https://github.com/cjx82630/cjxlist) |
+| **AdGuard DNS Filter** | AdGuard official DNS filter | [AdguardTeam/AdGuardSDNSFilter](https://github.com/AdguardTeam/AdGuardSDNSFilter) |
+| **Peter Lowe's List** | Ad/tracking server list | [pgl.yoyo.org](https://pgl.yoyo.org/adservers/) |
+| **URLhaus** | Malicious URL blocklist | [abuse.ch/urlhaus](https://urlhaus.abuse.ch/) |
+| **Phishing Army** | Phishing domain blocklist | [phishing-army](https://github.com/phishing-army/phishing_army_blocklist) |
+| **280blocker** | Japanese ad blocking list | [280blocker.net](https://280blocker.net/) |
+
+> Without these community-maintained filter lists, adfilter would have nothing to aggregate. Thank you!
