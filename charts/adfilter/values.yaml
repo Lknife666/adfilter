@@ -1,0 +1,78 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/lknife666/adfilter
+  tag: "latest"
+  pullPolicy: Always
+
+service:
+  type: ClusterIP
+  port: 8787
+
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  hosts:
+    - host: rules.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+persistence:
+  rules:
+    enabled: true
+    size: 1Gi
+    storageClass: ""
+    accessMode: ReadWriteOnce
+  cache:
+    enabled: true
+    size: 2Gi
+    storageClass: ""
+    accessMode: ReadWriteOnce
+
+cronJob:
+  enabled: true
+  schedule: "0 */8 * * *"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+
+resources:
+  serve:
+    limits:
+      memory: 256Mi
+      cpu: 500m
+    requests:
+      memory: 64Mi
+      cpu: 50m
+  build:
+    limits:
+      memory: 512Mi
+      cpu: "1"
+    requests:
+      memory: 128Mi
+      cpu: 100m
+
+config:
+  applicationYaml: |
+    application:
+      config:
+        input:
+          rule:
+            default:
+              - name: anti-ad
+                type: easylist
+                path: https://anti-ad.net/easylist.txt
+              - name: easyprivacy
+                type: easylist
+                path: https://easylist.to/easylist/easyprivacy.txt
+        output:
+          path: /data/rules
+          files:
+            - { name: dns.txt, type: dns, desc: "AdGuard Home" }
+            - { name: clash.yaml, type: clash, desc: "Clash" }
+            - { name: hosts.txt, type: hosts, desc: "hosts" }
+        optimizer:
+          enable: true
+          collapse_subdomains: true

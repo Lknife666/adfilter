@@ -1,0 +1,57 @@
+{{- if .Values.cronJob.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .Release.Name }}-build
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  schedule: {{ .Values.cronJob.schedule | quote }}
+  successfulJobsHistoryLimit: {{ .Values.cronJob.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.cronJob.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: build
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command: ["adfilter"]
+              args:
+                - run
+                - --config
+                - /app/config/application.yaml
+                - --report
+                - /data/rules/build-report.json
+              resources:
+                {{- toYaml .Values.resources.build | nindent 16 }}
+              volumeMounts:
+                - name: config
+                  mountPath: /app/config
+                  readOnly: true
+                - name: rules
+                  mountPath: /data/rules
+                - name: cache
+                  mountPath: /app/.cache
+          volumes:
+            - name: config
+              configMap:
+                name: {{ .Release.Name }}-config
+            - name: rules
+              {{- if .Values.persistence.rules.enabled }}
+              persistentVolumeClaim:
+                claimName: {{ .Release.Name }}-rules
+              {{- else }}
+              emptyDir: {}
+              {{- end }}
+            - name: cache
+              {{- if .Values.persistence.cache.enabled }}
+              persistentVolumeClaim:
+                claimName: {{ .Release.Name }}-cache
+              {{- else }}
+              emptyDir: {}
+              {{- end }}
+{{- end }}

@@ -1,0 +1,17 @@
+apiVersion: v2
+name: adfilter
+description: Ad-filter rule aggregator & multi-format converter
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - adblock
+  - dns
+  - filter
+  - rules
+home: https://github.com/Lknife666/adfilter
+sources:
+  - https://github.com/Lknife666/adfilter
+maintainers:
+  - name: Lknife666
+    url: https://github.com/Lknife666
