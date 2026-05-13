@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+
+<!-- Status Cards -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+    <div class="bg-white rounded-lg shadow p-5">
+        <div class="text-sm text-gray-500">Total Rules</div>
+        <div class="text-2xl font-bold text-blue-600">{{ "{:,}".format(total_rules) }}</div>
+    </div>
+    <div class="bg-white rounded-lg shadow p-5">
+        <div class="text-sm text-gray-500">Output Files</div>
+        <div class="text-2xl font-bold text-green-600">{{ total_files }}</div>
+    </div>
+    <div class="bg-white rounded-lg shadow p-5">
+        <div class="text-sm text-gray-500">Sources</div>
+        <div class="text-2xl font-bold text-purple-600">{{ total_sources }}</div>
+    </div>
+    <div class="bg-white rounded-lg shadow p-5">
+        <div class="text-sm text-gray-500">Last Build</div>
+        <div class="text-sm font-medium text-gray-700">
+            {% if last_build %}
+                {{ last_build[:19] }}
+                <span class="text-xs text-gray-400">({{ elapsed_ms }}ms)</span>
+            {% else %}
+                Never
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Subscription Table -->
+<div class="bg-white rounded-lg shadow mb-8">
+    <div class="px-6 py-4 border-b">
+        <h2 class="text-lg font-semibold text-gray-800">Rule Subscriptions</h2>
+        <p class="text-sm text-gray-500 mt-1">Copy the URL and paste it into your ad-blocking tool</p>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">File</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Format</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rules</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subscribe URL</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase"></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                {% for file in files %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-3 text-sm font-mono text-gray-700">{{ file.name }}</td>
+                    <td class="px-6 py-3 text-sm text-gray-600">
+                        {% if '.txt' in file.name %}Text{% elif '.yaml' in file.name %}YAML{% elif '.json' in file.name %}JSON{% elif '.conf' in file.name %}Conf{% elif '.rsc' in file.name %}Script{% endif %}
+                    </td>
+                    <td class="px-6 py-3 text-sm text-gray-600">
+                        {% for o in outputs %}{% if o.name == file.name %}{{ "{:,}".format(o.count) }}{% endif %}{% endfor %}
+                    </td>
+                    <td class="px-6 py-3">
+                        <input type="text" readonly value="{{ file.url }}"
+                               class="w-full text-xs bg-gray-100 border rounded px-2 py-1 font-mono text-gray-600"
+                               onclick="this.select()">
+                    </td>
+                    <td class="px-6 py-3">
+                        <button onclick="copyUrl(this, '{{ file.url }}')"
+                                class="copy-btn px-3 py-1 text-xs bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition">
+                            Copy
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% if not files %}
+                <tr>
+                    <td colspan="5" class="px-6 py-8 text-center text-gray-400">
+                        No rule files generated yet. Run <code class="bg-gray-100 px-1 rounded">adfilter run</code> first.
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Source Statistics -->
+{% if sources %}
+<div class="bg-white rounded-lg shadow">
+    <div class="px-6 py-4 border-b">
+        <h2 class="text-lg font-semibold text-gray-800">Source Statistics</h2>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Source</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Effective</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Invalid</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Repeat</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                {% for src in sources %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-3 text-sm font-medium text-gray-700">{{ src.name }}</td>
+                    <td class="px-6 py-3 text-sm text-gray-600">{{ "{:,}".format(src.total) }}</td>
+                    <td class="px-6 py-3 text-sm text-green-600">{{ "{:,}".format(src.effective) }}</td>
+                    <td class="px-6 py-3 text-sm text-red-500">{{ src.invalid }}</td>
+                    <td class="px-6 py-3 text-sm text-yellow-600">{{ src.repeat }}</td>
+                    <td class="px-6 py-3 text-sm text-gray-500">{{ src.elapsed_ms }}ms</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

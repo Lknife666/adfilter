@@ -29,7 +29,8 @@ dependencies = [
 
 [project.optional-dependencies]
 notify = ["aiohttp>=3.10"]  # notifications use aiohttp (already a core dep, explicit for clarity)
-all = ["adfilter[notify]"]
+web = ["litestar>=2.0", "jinja2>=3.1", "uvicorn>=0.30"]
+all = ["adfilter[notify,web]"]
 
 [project.urls]
 Homepage = "https://github.com/Lknife666/adfilter"

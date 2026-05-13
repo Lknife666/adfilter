@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}adfilter{% endblock %} — 规则订阅中心</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <style>
+        .copy-btn:active { transform: scale(0.95); }
+        .fade-in { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+            <a href="/" class="text-xl font-bold text-gray-800">adfilter</a>
+            <div class="flex gap-4 text-sm">
+                <a href="/" class="text-gray-600 hover:text-blue-600">Dashboard</a>
+                <a href="/search" class="text-gray-600 hover:text-blue-600">Search</a>
+                <a href="/api/v1/status" class="text-gray-600 hover:text-blue-600">API</a>
+                <a href="https://github.com/Lknife666/adfilter" target="_blank" class="text-gray-600 hover:text-blue-600">GitHub</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Content -->
+    <main class="max-w-6xl mx-auto px-4 py-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t bg-white mt-12">
+        <div class="max-w-6xl mx-auto px-4 py-4 text-center text-sm text-gray-500">
+            adfilter — Ad-filter rule aggregator & multi-format converter
+            | <a href="https://github.com/Lknife666/adfilter" class="text-blue-500 hover:underline">GitHub</a>
+            | MIT License
+        </div>
+    </footer>
+
+    <script>
+    function copyUrl(btn, url) {
+        navigator.clipboard.writeText(url).then(() => {
+            const orig = btn.textContent;
+            btn.textContent = 'Copied!';
+            btn.classList.add('bg-green-100');
+            setTimeout(() => { btn.textContent = orig; btn.classList.remove('bg-green-100'); }, 1500);
+        });
+    }
+    </script>
+</body>
+</html>
