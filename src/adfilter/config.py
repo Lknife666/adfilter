@@ -86,6 +86,7 @@ class InputItem(BaseModel):
     name: Annotated[str, Field(min_length=1)]
     type: RuleSet = RuleSet.EASYLIST
     path: Annotated[str, Field(min_length=1)]
+    group: str = ""  # v0.3: optional group tag for categorized output
 
     def __hash__(self) -> int:
         return hash(self.path)
@@ -96,15 +97,23 @@ class InputItem(BaseModel):
         return self.path == other.path or self.name == other.name
 
 
+class AllowlistItem(BaseModel):
+    """An allowlist source (local file or HTTP URL)."""
+    path: Annotated[str, Field(min_length=1)]
+
+
 class InputConfig(BaseModel):
     input: set[InputItem] = Field(default_factory=set)
     rule: dict[str, list[InputItem]] = Field(default_factory=dict)
+    allowlist: list[AllowlistItem] = Field(default_factory=list)  # v0.3
 
     @model_validator(mode="after")
     def flatten_rule_groups(self) -> InputConfig:
-        # merge "rule: {group: [items]}" into "input"
-        for items in self.rule.values():
+        # merge "rule: {group: [items]}" into "input", preserving group name
+        for group_name, items in self.rule.items():
             for item in items:
+                if not item.group:
+                    item.group = group_name
                 self.input.add(item)
         return self
 
@@ -118,6 +127,7 @@ class OutputItem(BaseModel):
     # empty = "accept all"
     filter: set[RuleType] = Field(default_factory=set)
     rule: set[str] = Field(default_factory=set)
+    groups: list[str] = Field(default_factory=list)  # v0.3: filter by source group
 
     def __hash__(self) -> int:
         return hash(self.name)
@@ -134,6 +144,25 @@ class OutputConfig(BaseModel):
     files: set[OutputItem] = Field(default_factory=set)
 
 
+# ────────────── notifier (v0.3) ──────────────
+class NotifierChannel(BaseModel):
+    type: str  # telegram | discord | wecom
+    # Telegram
+    bot_token: str = ""
+    chat_id: str = ""
+    # Discord
+    webhook_url: str = ""
+    # WeCom
+    webhook_key: str = ""
+
+
+class NotifierConfig(BaseModel):
+    enable: bool = False
+    on_success: bool = True
+    on_failure: bool = True
+    channels: list[NotifierChannel] = Field(default_factory=list)
+
+
 # ────────────── root ──────────────
 class AppConfig(BaseSettings):
     model_config = SettingsConfigDict(
@@ -147,6 +176,7 @@ class AppConfig(BaseSettings):
     fetcher: FetcherConfig = FetcherConfig()
     parser: ParserConfig = ParserConfig()
     optimizer: OptimizerConfig = OptimizerConfig()
+    notifier: NotifierConfig = NotifierConfig()  # v0.3
 
     @field_validator("output", mode="after")
     @classmethod
@@ -167,6 +197,7 @@ class AppConfig(BaseSettings):
 
 
 __all__ = [
+    "AllowlistItem",
     "AppConfig",
     "DnsProbeConfig",
     "DnsProvider",
@@ -175,6 +206,8 @@ __all__ = [
     "InputConfig",
     "InputItem",
     "LocalFetcherConfig",
+    "NotifierChannel",
+    "NotifierConfig",
     "OptimizerConfig",
     "OutputConfig",
     "OutputItem",

@@ -49,11 +49,13 @@ def normalize_idn(target: str) -> str:
 class RuleOptimizer:
     """Accumulates every accepted rule then yields the optimised set."""
 
-    def __init__(self, config: OptimizerConfig) -> None:
+    def __init__(self, config: OptimizerConfig, allowlist: set[str] | None = None) -> None:
         self.config = config
         self._rules: list[Rule] = []
         # target → count of distinct source names (for voting)
         self._sources_per_target: dict[str, set[str]] = defaultdict(set)
+        # v0.3: allowlist domains to remove
+        self._allowlist: set[str] = allowlist or set()
 
     # ── ingest ───────────────────────────────────────────────────────
     def feed(self, rule: Rule) -> None:
@@ -84,6 +86,10 @@ class RuleOptimizer:
 
         if self.config.collapse_subdomains:
             rules = _collapse_subdomains(rules)
+
+        # v0.3: apply allowlist (remove deny rules for allowlisted domains)
+        if self._allowlist:
+            rules = _apply_allowlist(rules, self._allowlist)
 
         log.info("optimizer done: %d -> %d rules (%+d)",
                  before, len(rules), len(rules) - before)
@@ -144,4 +150,26 @@ def _collapse_subdomains(rules: list[Rule]) -> list[Rule]:
     dropped = len(rules) - len(kept)
     if dropped:
         log.info("optimizer: collapsed %d child rules into overlay parents", dropped)
+    return kept
+
+
+
+def _apply_allowlist(rules: list[Rule], allowlist: set[str]) -> list[Rule]:
+    """Remove DENY rules whose target is in the allowlist (exact or suffix match)."""
+
+    def is_allowed(target: str) -> bool:
+        if target in allowlist:
+            return True
+        # suffix match: if "example.com" in allowlist, also matches "sub.example.com"
+        parts = target.split(".")
+        for i in range(1, len(parts) - 1):
+            parent = ".".join(parts[i:])
+            if parent in allowlist:
+                return True
+        return False
+
+    kept = [r for r in rules if not (r.mode is Mode.DENY and r.target and is_allowed(r.target))]
+    dropped = len(rules) - len(kept)
+    if dropped:
+        log.info("optimizer: allowlist removed %d rules", dropped)
     return kept
