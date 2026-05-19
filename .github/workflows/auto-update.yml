@@ -87,7 +87,7 @@ jobs:
           echo "rule_count=${total:-0}" >> "$GITHUB_OUTPUT"
 
       - name: Upload artifact for debugging
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rule
           path: rule/
