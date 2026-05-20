@@ -19,6 +19,7 @@ from . import app
 @app.command(name="stats")
 def cmd_stats(
     report: Annotated[Path, typer.Argument(help="Path to build-report JSON")],
+    efficiency: Annotated[bool, typer.Option("--efficiency", "-e", help="Show efficiency metrics")] = False,
 ) -> None:
     """Render a build report as a pretty table."""
     if not report.exists():
@@ -26,6 +27,10 @@ def cmd_stats(
         raise typer.Exit(code=2)
     data = json.loads(report.read_text(encoding="utf-8"))
     c = Console()
+
+    if efficiency:
+        _show_efficiency(c, data, report.parent)
+        return
 
     c.print(
         f"[bold]build report[/]  fingerprint={data.get('fingerprint', '')[:12]}  "
@@ -132,3 +137,51 @@ def cmd_completion(
         typer.echo(f"unknown shell: {shell}", err=True)
         raise typer.Exit(code=2)
     typer.echo(script)
+
+
+def _show_efficiency(c: Console, data: dict, rule_dir: Path) -> None:
+    """Display efficiency metrics panel."""
+    from rich.panel import Panel
+
+    from ..quality.efficiency import EfficiencyMetrics
+
+    # Gather data from build report
+    total_rules = data.get("total_rules", 0)
+    if not total_rules:
+        # Sum from sources
+        for src in data.get("sources", []):
+            total_rules += src.get("effective", 0)
+
+    # Count redundant (repeat) rules
+    redundant = sum(src.get("repeat", 0) for src in data.get("sources", []))
+    invalid = sum(src.get("invalid", 0) for src in data.get("sources", []))
+
+    # Estimate dead domains as invalid rules (best available proxy)
+    metrics = EfficiencyMetrics(
+        total_rules=total_rules,
+        live_domains=max(0, total_rules - invalid),
+        dead_domains=invalid,
+        redundant_rules=redundant,
+        unique_rules=total_rules - redundant,
+    )
+
+    # Progress bar helper
+    def bar(ratio: float, width: int = 20) -> str:
+        filled = int(ratio * width)
+        return "█" * filled + "░" * (width - filled)
+
+    lines = [
+        f"  Total Rules:     [bold]{metrics.total_rules:,}[/bold]",
+        f"  Live Domains:    [green]{metrics.live_domains:,}[/green] ({metrics.liveness_rate:.1%})  {bar(metrics.liveness_rate)}",
+        f"  Dead Domains:    [red]{metrics.dead_domains:,}[/red] ({metrics.dead_domains / max(metrics.total_rules, 1):.1%})  {bar(metrics.dead_domains / max(metrics.total_rules, 1))}",
+        f"  Redundant:       [yellow]{metrics.redundant_rules:,}[/yellow] ({metrics.redundant_rules / max(metrics.total_rules, 1):.1%})  {bar(metrics.redundant_rules / max(metrics.total_rules, 1))}",
+        "",
+        f"  Efficiency Score: [bold]{metrics.efficiency_score:.1%}[/bold]  {metrics.grade}",
+        f"  Bloat Ratio:      {metrics.bloat_ratio:.1%}",
+    ]
+
+    if metrics.dead_domains > 0:
+        lines.append("")
+        lines.append(f"  [dim]💡 Tip: {metrics.dead_domains:,} dead/invalid rules could be pruned.[/dim]")
+
+    c.print(Panel("\n".join(lines), title="Rule Efficiency Report", border_style="cyan"))

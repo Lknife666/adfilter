@@ -1,0 +1,575 @@
+{
+  "$defs": {
+    "AllowlistItem": {
+      "description": "An allowlist source (local file or HTTP URL).",
+      "properties": {
+        "path": {
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "AllowlistItem",
+      "type": "object"
+    },
+    "DnsProbeConfig": {
+      "properties": {
+        "enable": {
+          "default": false,
+          "title": "Enable",
+          "type": "boolean"
+        },
+        "timeout_seconds": {
+          "default": 5.0,
+          "title": "Timeout Seconds",
+          "type": "number"
+        },
+        "cache_ttl_min_seconds": {
+          "default": 60,
+          "title": "Cache Ttl Min Seconds",
+          "type": "integer"
+        },
+        "cache_ttl_max_seconds": {
+          "default": 86400,
+          "title": "Cache Ttl Max Seconds",
+          "type": "integer"
+        },
+        "cache_negative_ttl_seconds": {
+          "default": 30,
+          "title": "Cache Negative Ttl Seconds",
+          "type": "integer"
+        },
+        "provider": {
+          "items": {
+            "$ref": "#/$defs/DnsProvider"
+          },
+          "title": "Provider",
+          "type": "array"
+        }
+      },
+      "title": "DnsProbeConfig",
+      "type": "object"
+    },
+    "DnsProvider": {
+      "properties": {
+        "host": {
+          "title": "Host",
+          "type": "string"
+        },
+        "port": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Port"
+        }
+      },
+      "required": [
+        "host"
+      ],
+      "title": "DnsProvider",
+      "type": "object"
+    },
+    "FetcherConfig": {
+      "properties": {
+        "local": {
+          "$ref": "#/$defs/LocalFetcherConfig",
+          "default": {
+            "encoding": "utf-8"
+          }
+        },
+        "http": {
+          "$ref": "#/$defs/HttpFetcherConfig",
+          "default": {
+            "encoding": "utf-8",
+            "timeout_seconds": 30,
+            "max_retries": 3,
+            "user_agent": "adfilter/0.1",
+            "headers": {},
+            "cache_dir": null,
+            "max_concurrency": 8,
+            "on_failure": "cache_then_skip",
+            "max_cache_age_hours": 72
+          }
+        }
+      },
+      "title": "FetcherConfig",
+      "type": "object"
+    },
+    "HttpFetcherConfig": {
+      "properties": {
+        "encoding": {
+          "default": "utf-8",
+          "title": "Encoding",
+          "type": "string"
+        },
+        "timeout_seconds": {
+          "default": 30,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        },
+        "max_retries": {
+          "default": 3,
+          "title": "Max Retries",
+          "type": "integer"
+        },
+        "user_agent": {
+          "default": "adfilter/0.1",
+          "title": "User Agent",
+          "type": "string"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Headers",
+          "type": "object"
+        },
+        "cache_dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cache Dir"
+        },
+        "max_concurrency": {
+          "default": 8,
+          "title": "Max Concurrency",
+          "type": "integer"
+        },
+        "on_failure": {
+          "default": "cache_then_skip",
+          "title": "On Failure",
+          "type": "string"
+        },
+        "max_cache_age_hours": {
+          "default": 72,
+          "title": "Max Cache Age Hours",
+          "type": "integer"
+        }
+      },
+      "title": "HttpFetcherConfig",
+      "type": "object"
+    },
+    "InputConfig": {
+      "properties": {
+        "input": {
+          "items": {
+            "$ref": "#/$defs/InputItem"
+          },
+          "title": "Input",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "rule": {
+          "additionalProperties": {
+            "items": {
+              "$ref": "#/$defs/InputItem"
+            },
+            "type": "array"
+          },
+          "title": "Rule",
+          "type": "object"
+        },
+        "allowlist": {
+          "items": {
+            "$ref": "#/$defs/AllowlistItem"
+          },
+          "title": "Allowlist",
+          "type": "array"
+        }
+      },
+      "title": "InputConfig",
+      "type": "object"
+    },
+    "InputItem": {
+      "properties": {
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/RuleSet",
+          "default": "easylist"
+        },
+        "path": {
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "group": {
+          "default": "",
+          "title": "Group",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "path"
+      ],
+      "title": "InputItem",
+      "type": "object"
+    },
+    "LocalFetcherConfig": {
+      "properties": {
+        "encoding": {
+          "default": "utf-8",
+          "title": "Encoding",
+          "type": "string"
+        }
+      },
+      "title": "LocalFetcherConfig",
+      "type": "object"
+    },
+    "NotifierChannel": {
+      "properties": {
+        "type": {
+          "title": "Type",
+          "type": "string"
+        },
+        "bot_token": {
+          "default": "",
+          "title": "Bot Token",
+          "type": "string"
+        },
+        "chat_id": {
+          "default": "",
+          "title": "Chat Id",
+          "type": "string"
+        },
+        "webhook_url": {
+          "default": "",
+          "title": "Webhook Url",
+          "type": "string"
+        },
+        "webhook_key": {
+          "default": "",
+          "title": "Webhook Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "NotifierChannel",
+      "type": "object"
+    },
+    "NotifierConfig": {
+      "properties": {
+        "enable": {
+          "default": false,
+          "title": "Enable",
+          "type": "boolean"
+        },
+        "on_success": {
+          "default": true,
+          "title": "On Success",
+          "type": "boolean"
+        },
+        "on_failure": {
+          "default": true,
+          "title": "On Failure",
+          "type": "boolean"
+        },
+        "channels": {
+          "items": {
+            "$ref": "#/$defs/NotifierChannel"
+          },
+          "title": "Channels",
+          "type": "array"
+        }
+      },
+      "title": "NotifierConfig",
+      "type": "object"
+    },
+    "OptimizerConfig": {
+      "properties": {
+        "enable": {
+          "default": false,
+          "title": "Enable",
+          "type": "boolean"
+        },
+        "collapse_subdomains": {
+          "default": false,
+          "title": "Collapse Subdomains",
+          "type": "boolean"
+        },
+        "drop_allow_shadowed_deny": {
+          "default": false,
+          "title": "Drop Allow Shadowed Deny",
+          "type": "boolean"
+        },
+        "min_source_votes": {
+          "default": 1,
+          "title": "Min Source Votes",
+          "type": "integer"
+        },
+        "normalize_idn": {
+          "default": true,
+          "title": "Normalize Idn",
+          "type": "boolean"
+        }
+      },
+      "title": "OptimizerConfig",
+      "type": "object"
+    },
+    "OutputConfig": {
+      "properties": {
+        "path": {
+          "default": "./dist-rules",
+          "title": "Path",
+          "type": "string"
+        },
+        "file_header": {
+          "default": "",
+          "title": "File Header",
+          "type": "string"
+        },
+        "files": {
+          "items": {
+            "$ref": "#/$defs/OutputItem"
+          },
+          "title": "Files",
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "title": "OutputConfig",
+      "type": "object"
+    },
+    "OutputItem": {
+      "properties": {
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/RuleSet"
+        },
+        "desc": {
+          "default": "",
+          "title": "Desc",
+          "type": "string"
+        },
+        "file_header": {
+          "default": "",
+          "title": "File Header",
+          "type": "string"
+        },
+        "filter": {
+          "items": {
+            "$ref": "#/$defs/RuleType"
+          },
+          "title": "Filter",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "rule": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Rule",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "groups": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Groups",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "type"
+      ],
+      "title": "OutputItem",
+      "type": "object"
+    },
+    "ParserConfig": {
+      "properties": {
+        "min_length": {
+          "default": 0,
+          "title": "Min Length",
+          "type": "integer"
+        },
+        "max_length": {
+          "default": 0,
+          "title": "Max Length",
+          "type": "integer"
+        },
+        "alert_length": {
+          "default": 0,
+          "title": "Alert Length",
+          "type": "integer"
+        },
+        "excludes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Excludes",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "dns_probe": {
+          "$ref": "#/$defs/DnsProbeConfig",
+          "default": {
+            "enable": false,
+            "timeout_seconds": 5.0,
+            "cache_ttl_min_seconds": 60,
+            "cache_ttl_max_seconds": 86400,
+            "cache_negative_ttl_seconds": 30,
+            "provider": []
+          }
+        },
+        "incremental_build": {
+          "default": false,
+          "title": "Incremental Build",
+          "type": "boolean"
+        },
+        "incremental_cache_file": {
+          "default": ".adfilter-build.json",
+          "title": "Incremental Cache File",
+          "type": "string"
+        },
+        "progress": {
+          "default": false,
+          "title": "Progress",
+          "type": "boolean"
+        },
+        "json_logs": {
+          "default": false,
+          "title": "Json Logs",
+          "type": "boolean"
+        }
+      },
+      "title": "ParserConfig",
+      "type": "object"
+    },
+    "RuleSet": {
+      "enum": [
+        "easylist",
+        "dns",
+        "dnsmasq",
+        "smartdns",
+        "clash",
+        "hosts",
+        "surge",
+        "singbox",
+        "mikrotik",
+        "unbound",
+        "quantumult",
+        "loon"
+      ],
+      "title": "RuleSet",
+      "type": "string"
+    },
+    "RuleType": {
+      "enum": [
+        "basic",
+        "wildcard",
+        "regex",
+        "unknown"
+      ],
+      "title": "RuleType",
+      "type": "string"
+    }
+  },
+  "properties": {
+    "input": {
+      "$ref": "#/$defs/InputConfig",
+      "default": {
+        "input": [],
+        "rule": {},
+        "allowlist": []
+      }
+    },
+    "output": {
+      "$ref": "#/$defs/OutputConfig",
+      "default": {
+        "path": "./dist-rules",
+        "file_header": "",
+        "files": []
+      }
+    },
+    "fetcher": {
+      "$ref": "#/$defs/FetcherConfig",
+      "default": {
+        "local": {
+          "encoding": "utf-8"
+        },
+        "http": {
+          "cache_dir": null,
+          "encoding": "utf-8",
+          "headers": {},
+          "max_cache_age_hours": 72,
+          "max_concurrency": 8,
+          "max_retries": 3,
+          "on_failure": "cache_then_skip",
+          "timeout_seconds": 30,
+          "user_agent": "adfilter/0.1"
+        }
+      }
+    },
+    "parser": {
+      "$ref": "#/$defs/ParserConfig",
+      "default": {
+        "min_length": 0,
+        "max_length": 0,
+        "alert_length": 0,
+        "excludes": [],
+        "dns_probe": {
+          "cache_negative_ttl_seconds": 30,
+          "cache_ttl_max_seconds": 86400,
+          "cache_ttl_min_seconds": 60,
+          "enable": false,
+          "provider": [],
+          "timeout_seconds": 5.0
+        },
+        "incremental_build": false,
+        "incremental_cache_file": ".adfilter-build.json",
+        "progress": false,
+        "json_logs": false
+      }
+    },
+    "optimizer": {
+      "$ref": "#/$defs/OptimizerConfig",
+      "default": {
+        "enable": false,
+        "collapse_subdomains": false,
+        "drop_allow_shadowed_deny": false,
+        "min_source_votes": 1,
+        "normalize_idn": true
+      }
+    },
+    "notifier": {
+      "$ref": "#/$defs/NotifierConfig",
+      "default": {
+        "enable": false,
+        "on_success": true,
+        "on_failure": true,
+        "channels": []
+      }
+    }
+  },
+  "title": "adfilter configuration",
+  "type": "object",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "Configuration schema for adfilter. Use with VS Code YAML extension for autocompletion."
+}
