@@ -111,10 +111,7 @@ class I18n:
         locale = os.environ.get("ADFILTER_LOCALE", "")
         if not locale:
             lang = os.environ.get("LANG", os.environ.get("LC_ALL", ""))
-            if lang.startswith("zh"):
-                locale = "zh"
-            else:
-                locale = DEFAULT_LOCALE
+            locale = "zh" if lang.startswith("zh") else DEFAULT_LOCALE
         return cls(locale=locale[:2].lower())
 
     def t(self, key: str, **kwargs: object) -> str:
@@ -162,7 +159,7 @@ _default: I18n | None = None
 
 def get_i18n() -> I18n:
     """Get the global I18n instance (lazy-initialized from env)."""
-    global _default
+    global _default  # noqa: PLW0603
     if _default is None:
         _default = I18n.from_env()
     return _default

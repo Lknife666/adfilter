@@ -25,7 +25,7 @@ def create_app(
     *,
     rule_dir: str | Path = "./rule",
     template_dir: str | Path | None = None,
-) -> "web.Application":
+) -> web.Application:
     """Create the aiohttp web application.
 
     Args:
@@ -54,7 +54,7 @@ def _default_template_dir() -> Path:
     return Path(__file__).parent / "templates"
 
 
-async def handle_dashboard(request: "web.Request") -> "web.Response":
+async def handle_dashboard(request: web.Request) -> web.Response:
     """Serve the dashboard page."""
     template_dir = request.app["template_dir"]
     rule_dir = request.app["rule_dir"]
@@ -77,14 +77,14 @@ async def handle_dashboard(request: "web.Request") -> "web.Response":
     )
 
 
-async def handle_api_status(request: "web.Request") -> "web.Response":
+async def handle_api_status(request: web.Request) -> web.Response:
     """Return build status as JSON."""
     rule_dir = request.app["rule_dir"]
     stats = _gather_stats(rule_dir)
     return web.json_response(stats)
 
 
-async def handle_api_search(request: "web.Request") -> "web.Response":
+async def handle_api_search(request: web.Request) -> web.Response:
     """Search rules for a given domain query."""
     query = request.query.get("q", "").strip().lower()
     if not query:
@@ -95,7 +95,7 @@ async def handle_api_search(request: "web.Request") -> "web.Response":
     return web.json_response({"query": query, "results": results})
 
 
-async def handle_search(request: "web.Request") -> "web.Response":
+async def handle_search(request: web.Request) -> web.Response:
     """Serve the search page."""
     template_dir = request.app["template_dir"]
     template_path = template_dir / "search.html"
@@ -139,8 +139,8 @@ def _search_rules(rule_dir: Path, query: str, max_results: int = 50) -> list[dic
 
     try:
         with dns_file.open("r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
+            for raw_line in f:
+                line = raw_line.strip()
                 if not line or line.startswith(("!", "#")):
                     continue
                 if query in line.lower():
