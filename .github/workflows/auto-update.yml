@@ -76,6 +76,35 @@ jobs:
           print('Generated rule/index.html')
           "
 
+      - name: Generate build manifest
+        run: |
+          uv run python -c "
+          from adfilter.build_guard import generate_manifest, write_manifest
+          from pathlib import Path
+          manifest = generate_manifest(
+              Path('rule'),
+              git_commit='${{ github.sha }}',
+              adfilter_version='0.5.0',
+          )
+          write_manifest(Path('rule'), manifest)
+          print(f'Manifest: {len(manifest.files)} files')
+          "
+
+      - name: Post-build safety checks
+        run: |
+          uv run python -c "
+          from adfilter.build_guard import post_build_checks
+          from pathlib import Path
+          result = post_build_checks(Path('rule'))
+          if not result.passed:
+              for e in result.errors:
+                  print(f'::error::{e}')
+              raise SystemExit(1)
+          for w in result.warnings:
+              print(f'::warning::{w}')
+          print('Post-build checks passed')
+          "
+
       - name: Summarise output
         id: summary
         run: |
