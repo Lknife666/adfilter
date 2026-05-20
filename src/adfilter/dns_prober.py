@@ -47,8 +47,7 @@ class DnsProber:
         servers = [p.host for p in self.config.provider] or None
         timeout = self.config.timeout_seconds
         self._resolvers = [
-            aiodns.DNSResolver(nameservers=servers, timeout=timeout, tries=2)
-            for _ in range(num)
+            aiodns.DNSResolver(nameservers=servers, timeout=timeout, tries=2) for _ in range(num)
         ]
         self._resolver_cycle = cycle(self._resolvers)
         log.info("dns prober ready: %d resolvers, %d servers", num, len(servers or []))

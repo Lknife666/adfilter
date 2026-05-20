@@ -81,9 +81,7 @@ class BuildGuard:
 
         # Check minimum threshold
         if total_rules < self.min_rules:
-            result.add_error(
-                f"Rule count {total_rules} is below minimum threshold {self.min_rules}"
-            )
+            result.add_error(f"Rule count {total_rules} is below minimum threshold {self.min_rules}")
 
         # Check drop from previous build
         prev_count = self._previous_state.get("total_rules", 0)
@@ -96,10 +94,7 @@ class BuildGuard:
                     f"threshold is {self.drop_threshold:.0%}"
                 )
             elif drop_ratio > self.drop_threshold * 0.5:
-                result.add_warning(
-                    f"Rule count decreased by {drop_ratio:.1%} "
-                    f"({prev_count} → {total_rules})"
-                )
+                result.add_warning(f"Rule count decreased by {drop_ratio:.1%} ({prev_count} → {total_rules})")
 
         # Check source failures
         if sources:
@@ -146,10 +141,7 @@ class BuildGuard:
             "sources": {},
         }
         if sources:
-            state["sources"] = {
-                s.name: {"success": s.success, "rule_count": s.rule_count}
-                for s in sources
-            }
+            state["sources"] = {s.name: {"success": s.success, "rule_count": s.rule_count} for s in sources}
         try:
             self.state_file.parent.mkdir(parents=True, exist_ok=True)
             with self.state_file.open("w", encoding="utf-8") as f:
@@ -160,3 +152,143 @@ class BuildGuard:
     def get_previous_count(self) -> int:
         """Get the rule count from the last successful build."""
         return self._previous_state.get("total_rules", 0)
+
+    def get_previous_source_counts(self) -> dict[str, int]:
+        """Get per-source rule counts from the last successful build."""
+        sources = self._previous_state.get("sources", {})
+        return {name: info.get("rule_count", 0) for name, info in sources.items()}
+
+
+@dataclass
+class FileEntry:
+    """A single file in the build manifest."""
+
+    name: str
+    sha256: str
+    size: int
+    line_count: int
+
+
+@dataclass
+class BuildManifest:
+    """Manifest of all build outputs for integrity verification."""
+
+    build_time: str
+    git_commit: str
+    adfilter_version: str
+    sources_fetched: int = 0
+    audit_alerts: int = 0
+    files: list[FileEntry] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        """Serialize to a JSON-compatible dict."""
+        return {
+            "build_time": self.build_time,
+            "git_commit": self.git_commit,
+            "adfilter_version": self.adfilter_version,
+            "sources_fetched": self.sources_fetched,
+            "audit_alerts": self.audit_alerts,
+            "files": [
+                {
+                    "name": f.name,
+                    "sha256": f.sha256,
+                    "size": f.size,
+                    "line_count": f.line_count,
+                }
+                for f in self.files
+            ],
+        }
+
+
+def post_build_checks(
+    output_dir: Path,
+    previous_sizes: dict[str, int] | None = None,
+    *,
+    max_shrink_ratio: float = 0.5,
+    max_grow_ratio: float = 2.0,
+) -> GuardResult:
+    """Run post-build safety checks on the output directory.
+
+    Checks:
+    - Output files exist and are non-empty
+    - File sizes haven't shrunk/grown beyond reasonable bounds vs previous build
+    """
+    result = GuardResult()
+    previous_sizes = previous_sizes or {}
+
+    if not output_dir.exists():
+        result.add_error(f"Output directory does not exist: {output_dir}")
+        return result
+
+    output_files = [f for f in output_dir.iterdir() if f.is_file() and f.name != "build-report.json"]
+    if not output_files:
+        result.add_error("No output files generated")
+        return result
+
+    for f in output_files:
+        size = f.stat().st_size
+        if size == 0:
+            result.add_error(f"Output file is empty: {f.name}")
+            continue
+
+        prev_size = previous_sizes.get(f.name, 0)
+        if prev_size > 0:
+            ratio = size / prev_size
+            if ratio < max_shrink_ratio:
+                result.add_error(f"{f.name} shrank to {ratio:.0%} of previous size ({prev_size} → {size})")
+            elif ratio > max_grow_ratio:
+                result.add_warning(f"{f.name} grew to {ratio:.0%} of previous size ({prev_size} → {size})")
+
+    return result
+
+
+def generate_manifest(
+    output_dir: Path,
+    *,
+    git_commit: str = "",
+    adfilter_version: str = "",
+    sources_fetched: int = 0,
+    audit_alerts: int = 0,
+) -> BuildManifest:
+    """Generate a build manifest with SHA-256 hashes for all output files."""
+    import hashlib
+    from datetime import UTC, datetime
+
+    manifest = BuildManifest(
+        build_time=datetime.now(UTC).isoformat(),
+        git_commit=git_commit,
+        adfilter_version=adfilter_version,
+        sources_fetched=sources_fetched,
+        audit_alerts=audit_alerts,
+    )
+
+    if not output_dir.exists():
+        return manifest
+
+    for f in sorted(output_dir.iterdir()):
+        if not f.is_file() or f.name in ("build-report.json", "manifest.json"):
+            continue
+        content = f.read_bytes()
+        sha256 = hashlib.sha256(content).hexdigest()
+        line_count = content.count(b"\n")
+        manifest.files.append(
+            FileEntry(
+                name=f.name,
+                sha256=sha256,
+                size=len(content),
+                line_count=line_count,
+            )
+        )
+
+    return manifest
+
+
+def write_manifest(output_dir: Path, manifest: BuildManifest) -> Path:
+    """Write the manifest to output_dir/manifest.json."""
+    manifest_path = output_dir / "manifest.json"
+    manifest_path.write_text(
+        json.dumps(manifest.to_dict(), indent=2) + "\n",
+        encoding="utf-8",
+    )
+    log.info("BuildGuard: wrote manifest to %s", manifest_path)
+    return manifest_path

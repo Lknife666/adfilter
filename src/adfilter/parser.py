@@ -79,10 +79,7 @@ class Parser:
             if rule.target and rule.target in self.parser_config.excludes:
                 log.debug("[%s] excluded: %s", item.name, rule.origin)
                 continue
-            if (
-                self.parser_config.alert_length > 0
-                and len(rule.origin) <= self.parser_config.alert_length
-            ):
+            if self.parser_config.alert_length > 0 and len(rule.origin) <= self.parser_config.alert_length:
                 log.warning("[%s] suspicious short rule: %s", item.name, rule.origin)
 
             # dedupe by murmur3
@@ -94,11 +91,7 @@ class Parser:
                 self._seen_hashes.add(h)
 
             # optional DNS probe
-            if (
-                self.prober is not None
-                and rule.type is RuleType.BASIC
-                and rule.scope is Scope.DOMAIN
-            ):
+            if self.prober is not None and rule.type is RuleType.BASIC and rule.scope is Scope.DOMAIN:
                 exists = await self.prober.lookup(rule.target)
                 if not exists:
                     stats.invalid += 1
@@ -110,7 +103,12 @@ class Parser:
         stats.elapsed_ms = int((time.monotonic() - started) * 1000)
         log.info(
             "[%s] done: total=%d effective=%d invalid=%d repeat=%d in %dms",
-            item.name, stats.total, stats.effective, stats.invalid, stats.repeat, stats.elapsed_ms,
+            item.name,
+            stats.total,
+            stats.effective,
+            stats.invalid,
+            stats.repeat,
+            stats.elapsed_ms,
         )
         if self.on_source_done:
             try:

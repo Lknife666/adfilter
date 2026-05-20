@@ -114,7 +114,4 @@ class SingboxHandler(Handler):
 
     def commented(self, value: str) -> str:
         # use `//` comments so later JSON-wrap can strip them cleanly
-        return CRLF.join(
-            f"// {ln.strip()}"
-            for ln in split_ignore_blank(value, LF)
-        )
+        return CRLF.join(f"// {ln.strip()}" for ln in split_ignore_blank(value, LF))

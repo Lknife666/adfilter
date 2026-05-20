@@ -36,7 +36,7 @@ class ClashHandler(Handler):
         rule = Rule(origin=line, source_type=RuleSet.CLASH)
         # strip leading whitespace + optional leading "-"
         stripped = line.lstrip()
-        content = (stripped[len(DASH):] if stripped.startswith(DASH) else stripped).strip()
+        content = (stripped[len(DASH) :] if stripped.startswith(DASH) else stripped).strip()
         if content.startswith(SINGLE_QUOTE):
             content = sub_between(content, SINGLE_QUOTE, SINGLE_QUOTE).strip()
         elif content.startswith(QUOTE):
@@ -87,6 +87,4 @@ class ClashHandler(Handler):
         return line.startswith(HASH)
 
     def commented(self, value: str) -> str:
-        return CRLF.join(
-            f"{HASH}{ln.strip()}" for ln in split_ignore_blank(value, LF)
-        )
+        return CRLF.join(f"{HASH}{ln.strip()}" for ln in split_ignore_blank(value, LF))

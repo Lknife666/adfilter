@@ -17,10 +17,8 @@ from . import app
 def cmd_convert(
     source: Annotated[Path, typer.Argument(help="Input file path")],
     target: Annotated[Path, typer.Argument(help="Output file path")],
-    from_fmt: Annotated[RuleSet, typer.Option("--from", "-f",
-                                              help="Source format")] = RuleSet.EASYLIST,
-    to_fmt: Annotated[RuleSet, typer.Option("--to", "-t",
-                                            help="Target format")] = RuleSet.HOSTS,
+    from_fmt: Annotated[RuleSet, typer.Option("--from", "-f", help="Source format")] = RuleSet.EASYLIST,
+    to_fmt: Annotated[RuleSet, typer.Option("--to", "-t", help="Target format")] = RuleSet.HOSTS,
 ) -> None:
     """One-shot file-to-file conversion between any two formats.
 
@@ -53,5 +51,4 @@ def cmd_convert(
                 tf.write(out_line)
                 tf.write("\n")
                 count += 1
-    typer.echo(f"converted {count} rules: {source} ({from_fmt.value}) -> "
-               f"{target} ({to_fmt.value})")
+    typer.echo(f"converted {count} rules: {source} ({from_fmt.value}) -> {target} ({to_fmt.value})")

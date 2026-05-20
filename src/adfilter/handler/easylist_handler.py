@@ -50,7 +50,7 @@ class EasylistHandler(Handler):
         # $modifiers
         if DOLLAR in work:
             i = work.index(DOLLAR)
-            mod = work[i + 1:].strip()
+            mod = work[i + 1 :].strip()
             work = work[:i]
             match mod:
                 case "important":
@@ -121,13 +121,7 @@ class EasylistHandler(Handler):
 
     # ────────── comment handling ──────────
     def is_comment(self, line: str) -> bool:
-        return (
-            starts_with_any(line, HASH, EXCLAMATION)
-            or between(line, LBRACKET, RBRACKET)
-        )
+        return starts_with_any(line, HASH, EXCLAMATION) or between(line, LBRACKET, RBRACKET)
 
     def commented(self, value: str) -> str:
-        return CRLF.join(
-            f"{EXCLAMATION}{WHITESPACE}{ln.strip()}"
-            for ln in split_ignore_blank(value, LF)
-        )
+        return CRLF.join(f"{EXCLAMATION}{WHITESPACE}{ln.strip()}" for ln in split_ignore_blank(value, LF))

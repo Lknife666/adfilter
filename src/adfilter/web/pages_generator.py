@@ -137,7 +137,7 @@ class PagesGenerator:
                 "file_count": data.get("file_count", len(FORMAT_INFO)),
                 "last_updated": data.get("timestamp", "N/A"),
             }
-        except (json.JSONDecodeError, OSError):
+        except json.JSONDecodeError, OSError:
             return {}
 
     def _build_table_rows(self) -> str:
@@ -146,11 +146,11 @@ class PagesGenerator:
         for filename, fmt_name, apps in FORMAT_INFO:
             url = f"{self.base_url}/{filename}"
             row = (
-                f'                <tr>'
-                f'<td>{fmt_name}</td>'
-                f'<td>{apps}</td>'
+                f"                <tr>"
+                f"<td>{fmt_name}</td>"
+                f"<td>{apps}</td>"
                 f'<td><a href="{url}"><code>{filename}</code></a></td>'
-                f'</tr>'
+                f"</tr>"
             )
             rows.append(row)
         return "\n".join(rows)

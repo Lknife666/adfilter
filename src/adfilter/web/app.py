@@ -34,8 +34,7 @@ def create_app(
     """
     if web is None:
         raise ImportError(
-            "aiohttp is required for the web dashboard. "
-            "Install with: pip install adfilter[web]"
+            "aiohttp is required for the web dashboard. Install with: pip install adfilter[web]"
         )
 
     app = web.Application()
@@ -118,7 +117,7 @@ def _gather_stats(rule_dir: Path) -> dict:
             data = json.loads(report_path.read_text(encoding="utf-8"))
             stats["last_updated"] = data.get("timestamp", "unknown")
             stats["total_rules"] = data.get("total_rules", 0)
-        except (json.JSONDecodeError, OSError):
+        except json.JSONDecodeError, OSError:
             pass
 
     for f in rule_dir.iterdir():

@@ -37,7 +37,7 @@ class MikrotikHandler(Handler):
         if stripped.startswith("add name="):
             try:
                 name = stripped.split("name=", 1)[1].split(" ", 1)[0].strip('"')
-            except (IndexError, ValueError):
+            except IndexError, ValueError:
                 return Rule.empty()
             detected = detect_base_rule(name)
             if detected is None:
@@ -68,7 +68,4 @@ class MikrotikHandler(Handler):
         return line.lstrip().startswith(HASH)
 
     def commented(self, value: str) -> str:
-        return CRLF.join(
-            f"{HASH}{WHITESPACE}{ln.strip()}"
-            for ln in split_ignore_blank(value, LF)
-        )
+        return CRLF.join(f"{HASH}{WHITESPACE}{ln.strip()}" for ln in split_ignore_blank(value, LF))

@@ -57,9 +57,7 @@ class ConflictDetector:
                         domain=domain,
                         conflict_type="deny_allow",
                         sources=deny_sources + allow_sources,
-                        description=(
-                            f"Blocked by {deny_sources} but allowed by {allow_sources}"
-                        ),
+                        description=(f"Blocked by {deny_sources} but allowed by {allow_sources}"),
                     )
                 )
 
@@ -67,9 +65,7 @@ class ConflictDetector:
         self._detect_overlaps(deny_domains)
 
         if self._conflicts:
-            log.info(
-                "ConflictDetector: found %d conflicts", len(self._conflicts)
-            )
+            log.info("ConflictDetector: found %d conflicts", len(self._conflicts))
 
         return self._conflicts
 
@@ -90,9 +86,7 @@ class ConflictDetector:
                             domain=domain,
                             conflict_type="overlap",
                             sources=child_sources + parent_sources,
-                            description=(
-                                f"'{domain}' is shadowed by parent '{parent}'"
-                            ),
+                            description=(f"'{domain}' is shadowed by parent '{parent}'"),
                         )
                     )
                     break  # Only report first overlap

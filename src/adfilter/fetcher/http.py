@@ -28,11 +28,11 @@ _BLOCKED_NETWORKS = [
     ipaddress.ip_network("172.16.0.0/12"),
     ipaddress.ip_network("192.168.0.0/16"),
     ipaddress.ip_network("127.0.0.0/8"),
-    ipaddress.ip_network("169.254.0.0/16"),   # link-local
+    ipaddress.ip_network("169.254.0.0/16"),  # link-local
     ipaddress.ip_network("0.0.0.0/8"),
-    ipaddress.ip_network("::1/128"),           # IPv6 loopback
-    ipaddress.ip_network("fc00::/7"),          # IPv6 unique local
-    ipaddress.ip_network("fe80::/10"),         # IPv6 link-local
+    ipaddress.ip_network("::1/128"),  # IPv6 loopback
+    ipaddress.ip_network("fc00::/7"),  # IPv6 unique local
+    ipaddress.ip_network("fe80::/10"),  # IPv6 link-local
 ]
 
 
@@ -67,7 +67,6 @@ def _check_ssrf(url: str) -> None:
         for network in _BLOCKED_NETWORKS:
             if ip in network:
                 raise SSRFError(url, ip_str)
-
 
 
 def _cache_key(url: str) -> str:
@@ -138,8 +137,7 @@ class HttpFetcher(Fetcher):
                 if attempt > self._config.max_retries:
                     break
                 backoff = min(2**attempt, 30)
-                log.warning("fetch %s failed (attempt %d): %s, retrying in %ds",
-                            path, attempt, e, backoff)
+                log.warning("fetch %s failed (attempt %d): %s, retrying in %ds", path, attempt, e, backoff)
                 await asyncio.sleep(backoff)
 
         # ── fallback logic ──────────────────────────────────────────
@@ -147,8 +145,7 @@ class HttpFetcher(Fetcher):
         strategy = self._config.on_failure
 
         if strategy == "fail_fast":
-            log.error("fetch %s failed after %d retries (fail_fast): %s",
-                      path, attempt, last_error)
+            log.error("fetch %s failed after %d retries (fail_fast): %s", path, attempt, last_error)
             raise FetchError(path, last_error)
 
         if strategy in ("cache_then_skip", "skip_always"):
@@ -158,18 +155,22 @@ class HttpFetcher(Fetcher):
                 if cache_age <= self._config.max_cache_age_hours:
                     log.warning(
                         "fetch %s failed, using cached version (%.1fh old): %s",
-                        path, cache_age, last_error,
+                        path,
+                        cache_age,
+                        last_error,
                     )
                     for ln in cached_body.splitlines():
                         yield ln
                     return
                 log.warning(
                     "fetch %s failed, cache too old (%.1fh > %dh limit), skipping: %s",
-                    path, cache_age, self._config.max_cache_age_hours, last_error,
+                    path,
+                    cache_age,
+                    self._config.max_cache_age_hours,
+                    last_error,
                 )
             else:
-                log.warning("fetch %s failed, no cache available, skipping: %s",
-                            path, last_error)
+                log.warning("fetch %s failed, no cache available, skipping: %s", path, last_error)
             # Skip: yield nothing (empty source)
             return
 
@@ -192,8 +193,7 @@ class HttpFetcher(Fetcher):
         if self._cache_dir is None:
             return None, None
         key = _cache_key(url)
-        return (self._cache_dir / f"{key}.meta.json",
-                self._cache_dir / f"{key}.body")
+        return (self._cache_dir / f"{key}.meta.json", self._cache_dir / f"{key}.body")
 
     async def _stream(
         self,

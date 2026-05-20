@@ -88,7 +88,4 @@ class LoonHandler(Handler):
         return stripped.startswith(HASH) or stripped.startswith("//")
 
     def commented(self, value: str) -> str:
-        return CRLF.join(
-            f"# {ln.strip()}"
-            for ln in split_ignore_blank(value, LF)
-        )
+        return CRLF.join(f"# {ln.strip()}" for ln in split_ignore_blank(value, LF))

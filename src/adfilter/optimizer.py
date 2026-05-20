@@ -42,7 +42,7 @@ def normalize_idn(target: str) -> str:
         return target.lower()
     try:
         return target.encode("idna").decode("ascii").lower()
-    except (UnicodeError, ValueError):
+    except UnicodeError, ValueError:
         return target.lower()
 
 
@@ -73,12 +73,11 @@ class RuleOptimizer:
         if self.config.min_source_votes > 1:
             threshold = self.config.min_source_votes
             kept = [
-                r for r in rules
-                if not r.target
-                or len(self._sources_per_target.get(r.target, set())) >= threshold
+                r
+                for r in rules
+                if not r.target or len(self._sources_per_target.get(r.target, set())) >= threshold
             ]
-            log.info("optimizer: voting (n>=%d) kept %d/%d",
-                     threshold, len(kept), len(rules))
+            log.info("optimizer: voting (n>=%d) kept %d/%d", threshold, len(kept), len(rules))
             rules = kept
 
         if self.config.drop_allow_shadowed_deny:
@@ -91,14 +90,14 @@ class RuleOptimizer:
         if self._allowlist:
             rules = _apply_allowlist(rules, self._allowlist)
 
-        log.info("optimizer done: %d -> %d rules (%+d)",
-                 before, len(rules), len(rules) - before)
+        log.info("optimizer done: %d -> %d rules (%+d)", before, len(rules), len(rules) - before)
         yield from rules
 
 
 def _drop_allow_shadowed(rules: list[Rule]) -> list[Rule]:
     allow_targets = {
-        r.target for r in rules
+        r.target
+        for r in rules
         if r.mode is Mode.ALLOW
         and r.target
         and r.scope is Scope.DOMAIN
@@ -106,10 +105,7 @@ def _drop_allow_shadowed(rules: list[Rule]) -> list[Rule]:
     }
     if not allow_targets:
         return rules
-    kept = [
-        r for r in rules
-        if not (r.mode is Mode.DENY and r.target in allow_targets)
-    ]
+    kept = [r for r in rules if not (r.mode is Mode.DENY and r.target in allow_targets)]
     dropped = len(rules) - len(kept)
     if dropped:
         log.info("optimizer: dropped %d deny rules shadowed by an allow", dropped)
@@ -119,7 +115,8 @@ def _drop_allow_shadowed(rules: list[Rule]) -> list[Rule]:
 def _collapse_subdomains(rules: list[Rule]) -> list[Rule]:
     """If ``||parent^`` (overlay) is present, drop ``||child.parent^``."""
     overlay_parents: set[str] = {
-        r.target for r in rules
+        r.target
+        for r in rules
         if r.type is RuleType.BASIC
         and r.mode is Mode.DENY
         and r.scope is Scope.DOMAIN
@@ -151,7 +148,6 @@ def _collapse_subdomains(rules: list[Rule]) -> list[Rule]:
     if dropped:
         log.info("optimizer: collapsed %d child rules into overlay parents", dropped)
     return kept
-
 
 
 def _apply_allowlist(rules: list[Rule], allowlist: set[str]) -> list[Rule]:
