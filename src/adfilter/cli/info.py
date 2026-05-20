@@ -175,11 +175,11 @@ def _show_efficiency(c: Console, data: dict, rule_dir: Path) -> None:
 
     metrics = EfficiencyMetrics(
         total_rules=raw_total,
-        live_domains=effective,         # only "effective" survived all checks
-        dead_domains=dead,              # NXDOMAIN, requires DNS probe
-        redundant_rules=repeat,         # cross-source duplicates
+        live_domains=effective,  # only "effective" survived all checks
+        dead_domains=dead,  # NXDOMAIN, requires DNS probe
+        redundant_rules=repeat,  # cross-source duplicates
         unique_rules=effective,
-        invalid_rules=invalid,          # parse failures
+        invalid_rules=invalid,  # parse failures
     )
 
     # Progress bar helper
@@ -198,9 +198,7 @@ def _show_efficiency(c: Console, data: dict, rule_dir: Path) -> None:
         f"  Repeat (x-src):   [yellow]{repeat:,}[/yellow] ({pct(repeat):.1%})  {bar(pct(repeat))}",
     ]
     if has_dns_probe:
-        lines.append(
-            f"  Dead (NXDOMAIN):  [red]{dead:,}[/red] ({pct(dead):.1%})  {bar(pct(dead))}"
-        )
+        lines.append(f"  Dead (NXDOMAIN):  [red]{dead:,}[/red] ({pct(dead):.1%})  {bar(pct(dead))}")
     else:
         lines.append("  Dead (NXDOMAIN):  [dim]not measured (enable parser.dns_probe to populate)[/dim]")
 
@@ -211,7 +209,9 @@ def _show_efficiency(c: Console, data: dict, rule_dir: Path) -> None:
     ]
 
     if invalid > 0:
-        lines.append(f"  [dim]💡 {invalid:,} rules failed to parse — consider auditing the source format.[/dim]")
+        lines.append(
+            f"  [dim]💡 {invalid:,} rules failed to parse — consider auditing the source format.[/dim]"
+        )
     if repeat > 0:
         lines.append(
             f"  [dim]💡 {repeat:,} cross-source duplicates: a rule already emitted by an earlier "
