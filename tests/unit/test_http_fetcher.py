@@ -2,133 +2,100 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
-
 import pytest
 
-from adfilter.fetcher.http import SSRFError, _check_ssrf
+from adfilter.fetcher.http import SSRFError, _check_url_scheme, _is_private_ip
 
 
 class TestSSRFProtection:
-    """Tests for the _check_ssrf guard."""
+    """Tests for the SSRF protection guards."""
 
-    def test_blocks_localhost_127(self):
-        with patch(
-            "socket.getaddrinfo",
-            return_value=[
-                (2, 1, 6, "", ("127.0.0.1", 0)),
-            ],
-        ):
-            with pytest.raises(SSRFError) as exc_info:
-                _check_ssrf("http://localhost/list.txt")
-            assert "127.0.0.1" in str(exc_info.value)
+    def test_blocks_localhost_hostname(self):
+        with pytest.raises(SSRFError):
+            _check_url_scheme("http://localhost/list.txt")
 
-    def test_blocks_private_10_network(self):
-        with patch(
-            "socket.getaddrinfo",
-            return_value=[
-                (2, 1, 6, "", ("10.0.1.5", 0)),
-            ],
-        ):
-            with pytest.raises(SSRFError):
-                _check_ssrf("http://internal.corp/rules.txt")
+    def test_blocks_localhost_localdomain(self):
+        with pytest.raises(SSRFError):
+            _check_url_scheme("http://localhost.localdomain/list.txt")
 
-    def test_blocks_private_172_16_network(self):
-        with patch(
-            "socket.getaddrinfo",
-            return_value=[
-                (2, 1, 6, "", ("172.16.0.1", 0)),
-            ],
-        ):
-            with pytest.raises(SSRFError):
-                _check_ssrf("http://private.lan/rules.txt")
+    def test_blocks_private_ip_literal_10(self):
+        with pytest.raises(SSRFError):
+            _check_url_scheme("http://10.0.1.5/rules.txt")
 
-    def test_blocks_private_192_168_network(self):
-        with patch(
-            "socket.getaddrinfo",
-            return_value=[
-                (2, 1, 6, "", ("192.168.1.100", 0)),
-            ],
-        ):
-            with pytest.raises(SSRFError):
-                _check_ssrf("http://router.local/rules.txt")
+    def test_blocks_private_ip_literal_172_16(self):
+        with pytest.raises(SSRFError):
+            _check_url_scheme("http://172.16.0.1/rules.txt")
 
-    def test_blocks_link_local(self):
-        with patch(
-            "socket.getaddrinfo",
-            return_value=[
-                (2, 1, 6, "", ("169.254.169.254", 0)),
-            ],
-        ):
-            with pytest.raises(SSRFError):
-                _check_ssrf("http://metadata.internal/latest")
+    def test_blocks_private_ip_literal_192_168(self):
+        with pytest.raises(SSRFError):
+            _check_url_scheme("http://192.168.1.100/rules.txt")
 
-    def test_blocks_ipv6_loopback(self):
-        with patch(
-            "socket.getaddrinfo",
-            return_value=[
-                (10, 1, 6, "", ("::1", 0, 0, 0)),
-            ],
-        ):
-            with pytest.raises(SSRFError):
-                _check_ssrf("http://[::1]/rules.txt")
+    def test_blocks_link_local_ip_literal(self):
+        with pytest.raises(SSRFError):
+            _check_url_scheme("http://169.254.169.254/latest")
 
-    def test_blocks_ipv6_ula(self):
-        with patch(
-            "socket.getaddrinfo",
-            return_value=[
-                (10, 1, 6, "", ("fd12:3456:789a::1", 0, 0, 0)),
-            ],
-        ):
-            with pytest.raises(SSRFError):
-                _check_ssrf("http://[fd12:3456:789a::1]/rules.txt")
+    def test_blocks_ipv6_loopback_literal(self):
+        with pytest.raises(SSRFError):
+            _check_url_scheme("http://[::1]/rules.txt")
 
-    def test_allows_public_ip(self):
-        with patch(
-            "socket.getaddrinfo",
-            return_value=[
-                (2, 1, 6, "", ("93.184.216.34", 0)),
-            ],
-        ):
-            # Should NOT raise
-            _check_ssrf("http://example.com/list.txt")
+    def test_blocks_ipv6_ula_literal(self):
+        with pytest.raises(SSRFError):
+            _check_url_scheme("http://[fd12:3456:789a::1]/rules.txt")
 
-    def test_allows_public_ipv6(self):
-        with patch(
-            "socket.getaddrinfo",
-            return_value=[
-                (10, 1, 6, "", ("2606:2800:220:1:248:1893:25c8:1946", 0, 0, 0)),
-            ],
-        ):
-            _check_ssrf("http://example.com/list.txt")
+    def test_blocks_file_scheme(self):
+        with pytest.raises(SSRFError):
+            _check_url_scheme("file:///etc/passwd")
 
-    def test_dns_failure_passes_through(self):
-        """If DNS resolution fails, let aiohttp handle it later."""
-        import socket
+    def test_blocks_ftp_scheme(self):
+        with pytest.raises(SSRFError):
+            _check_url_scheme("ftp://evil.com/payload")
 
-        with patch("socket.getaddrinfo", side_effect=socket.gaierror("DNS failed")):
-            # Should NOT raise — let the actual fetch handle DNS errors
-            _check_ssrf("http://nonexistent.example.com/rules.txt")
+    def test_allows_public_domain(self):
+        # Should NOT raise — domain names pass scheme check
+        _check_url_scheme("http://example.com/list.txt")
+
+    def test_allows_https(self):
+        _check_url_scheme("https://raw.githubusercontent.com/user/repo/main/list.txt")
+
+    def test_allows_public_ip_literal(self):
+        _check_url_scheme("http://93.184.216.34/list.txt")
 
     def test_no_hostname_raises(self):
         with pytest.raises(SSRFError):
-            _check_ssrf("http:///path/only")
+            _check_url_scheme("http:///path/only")
+
+    def test_is_private_ip_detects_private(self):
+        assert _is_private_ip("127.0.0.1") is True
+        assert _is_private_ip("10.0.0.1") is True
+        assert _is_private_ip("172.16.0.1") is True
+        assert _is_private_ip("192.168.1.1") is True
+        assert _is_private_ip("169.254.169.254") is True
+        assert _is_private_ip("100.64.0.1") is True  # CGNAT
+        assert _is_private_ip("::1") is True
+
+    def test_is_private_ip_allows_public(self):
+        assert _is_private_ip("8.8.8.8") is False
+        assert _is_private_ip("93.184.216.34") is False
+        assert _is_private_ip("2606:2800:220:1:248:1893:25c8:1946") is False
+
+    def test_is_private_ip_invalid_returns_false(self):
+        assert _is_private_ip("not-an-ip") is False
 
 
 class TestFetcherFactory:
     """Test fetcher/factory.py — detect_handle_type and get_fetcher."""
 
     def test_detect_http_url(self):
-        from adfilter.fetcher.factory import detect_handle_type
         from adfilter.constants import HandleType
+        from adfilter.fetcher.factory import detect_handle_type
 
         assert detect_handle_type("https://example.com/list.txt") == HandleType.REMOTE
         assert detect_handle_type("http://example.com/list.txt") == HandleType.REMOTE
         assert detect_handle_type("HTTP://EXAMPLE.COM") == HandleType.REMOTE
 
     def test_detect_local_path(self):
-        from adfilter.fetcher.factory import detect_handle_type
         from adfilter.constants import HandleType
+        from adfilter.fetcher.factory import detect_handle_type
 
         assert detect_handle_type("/tmp/rules.txt") == HandleType.LOCAL
         assert detect_handle_type("./relative/path.txt") == HandleType.LOCAL
