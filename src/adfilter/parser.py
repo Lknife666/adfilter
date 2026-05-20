@@ -25,6 +25,7 @@ class SourceStats:
     total: int = 0
     invalid: int = 0
     repeat: int = 0
+    dead: int = 0
     effective: int = 0
     elapsed_ms: int = 0
 
@@ -90,11 +91,13 @@ class Parser:
                     continue
                 self._seen_hashes.add(h)
 
-            # optional DNS probe
+            # optional DNS probe — failures are tracked separately as
+            # "dead" (domain does not resolve) rather than "invalid"
+            # (could not parse), so the build report can distinguish.
             if self.prober is not None and rule.type is RuleType.BASIC and rule.scope is Scope.DOMAIN:
                 exists = await self.prober.lookup(rule.target)
                 if not exists:
-                    stats.invalid += 1
+                    stats.dead += 1
                     continue
 
             stats.effective += 1
@@ -102,12 +105,13 @@ class Parser:
 
         stats.elapsed_ms = int((time.monotonic() - started) * 1000)
         log.info(
-            "[%s] done: total=%d effective=%d invalid=%d repeat=%d in %dms",
+            "[%s] done: total=%d effective=%d invalid=%d repeat=%d dead=%d in %dms",
             item.name,
             stats.total,
             stats.effective,
             stats.invalid,
             stats.repeat,
+            stats.dead,
             stats.elapsed_ms,
         )
         if self.on_source_done:

@@ -69,6 +69,7 @@ async def _run(config: AppConfig, *, report_path: Path | None) -> BuildReport:
             rep.effective = s.effective  # type: ignore[attr-defined]
             rep.invalid = s.invalid  # type: ignore[attr-defined]
             rep.repeat = s.repeat  # type: ignore[attr-defined]
+            rep.dead = s.dead  # type: ignore[attr-defined]
             rep.elapsed_ms = s.elapsed_ms  # type: ignore[attr-defined]
 
     parser = Parser(
