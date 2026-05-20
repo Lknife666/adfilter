@@ -15,6 +15,7 @@ class SourceReport:
     effective: int = 0
     invalid: int = 0
     repeat: int = 0
+    dead: int = 0
     elapsed_ms: int = 0
 
 
