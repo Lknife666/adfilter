@@ -84,7 +84,7 @@ def cmd_playground(
     while True:
         try:
             user_input = c.input("[bold cyan]> [/bold cyan]").strip()
-        except EOFError, KeyboardInterrupt:
+        except (EOFError, KeyboardInterrupt):
             c.print("\n[dim]Bye![/dim]")
             break
 

@@ -14,6 +14,6 @@ app = typer.Typer(
 console = Console(stderr=True)
 
 # Import command modules to register them on `app`.
-from . import convert, diff, info, playground, run, serve, sources  # noqa: E402, F401
+from . import bench, convert, diff, info, playground, run, serve, sources  # noqa: E402, F401
 
 __all__ = ["app", "console"]
