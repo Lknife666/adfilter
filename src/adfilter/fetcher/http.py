@@ -7,7 +7,6 @@ import hashlib
 import ipaddress
 import json
 import logging
-import socket
 import time
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -30,6 +29,8 @@ _BLOCKED_NETWORKS = [
     ipaddress.ip_network("127.0.0.0/8"),
     ipaddress.ip_network("169.254.0.0/16"),  # link-local
     ipaddress.ip_network("0.0.0.0/8"),
+    ipaddress.ip_network("100.64.0.0/10"),  # CGNAT
+    ipaddress.ip_network("198.18.0.0/15"),  # benchmark testing
     ipaddress.ip_network("::1/128"),  # IPv6 loopback
     ipaddress.ip_network("fc00::/7"),  # IPv6 unique local
     ipaddress.ip_network("fe80::/10"),  # IPv6 link-local
@@ -45,28 +46,56 @@ class SSRFError(Exception):
         super().__init__(f"SSRF blocked: {url} resolves to private address {ip}")
 
 
-def _check_ssrf(url: str) -> None:
-    """Resolve the hostname and reject private/reserved IPs to prevent SSRF attacks."""
-    parsed = urlparse(url)
-    hostname = parsed.hostname
-    if not hostname:
-        raise SSRFError(url, "<no host>")
-
+def _is_private_ip(ip_str: str) -> bool:
+    """Check whether an IP address belongs to a blocked private/reserved range."""
     try:
-        addr_info = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
-    except socket.gaierror:
-        # Cannot resolve — let aiohttp handle the DNS error naturally
-        return
+        addr = ipaddress.ip_address(ip_str)
+    except ValueError:
+        return False
+    return any(addr in network for network in _BLOCKED_NETWORKS)
 
-    for _family, _type, _proto, _canonname, sockaddr in addr_info:
-        ip_str = sockaddr[0]
-        try:
-            ip = ipaddress.ip_address(ip_str)
-        except ValueError:
-            continue
-        for network in _BLOCKED_NETWORKS:
-            if ip in network:
-                raise SSRFError(url, ip_str)
+
+def _check_url_scheme(url: str) -> None:
+    """Validate URL scheme before any network activity (fast, no DNS)."""
+    parsed = urlparse(url)
+    if not parsed.hostname:
+        raise SSRFError(url, "<no host>")
+    scheme = parsed.scheme.lower()
+    if scheme not in ("http", "https"):
+        raise SSRFError(url, f"<blocked scheme: {scheme}>")
+    # Block direct IP addresses that are private
+    try:
+        ip = ipaddress.ip_address(parsed.hostname)
+        if _is_private_ip(str(ip)):
+            raise SSRFError(url, str(ip))
+    except ValueError:
+        pass  # Not an IP literal — domain name, which is fine
+    # Block localhost aliases
+    if parsed.hostname.lower() in ("localhost", "localhost.localdomain"):
+        raise SSRFError(url, "localhost")
+
+
+class _SSRFSafeConnector(aiohttp.TCPConnector):
+    """Custom TCP connector that validates resolved IPs at connect time.
+
+    This eliminates the TOCTOU gap of the previous approach where DNS was
+    resolved once for checking and independently again by aiohttp for
+    connecting. By overriding _resolve_host, the IP check happens on the
+    exact addresses that will be used for the connection.
+    """
+
+    async def _resolve_host(
+        self,
+        host: str,
+        port: int,
+        traces: object = None,
+    ) -> list[dict[str, object]]:
+        records = await super()._resolve_host(host, port, traces)
+        for rec in records:
+            ip_str = str(rec.get("host", ""))
+            if _is_private_ip(ip_str):
+                raise SSRFError(host, ip_str)
+        return records
 
 
 def _cache_key(url: str) -> str:
@@ -99,9 +128,9 @@ class HttpFetcher(Fetcher):
 
     # ── public ──────────────────────────────────────────────────────
     async def fetch(self, path: str) -> AsyncIterator[str]:
-        # SSRF guard: reject URLs that resolve to private/reserved IPs
+        # SSRF guard: fast scheme/IP-literal check (no DNS needed)
         try:
-            _check_ssrf(path)
+            _check_url_scheme(path)
         except SSRFError as e:
             log.error("SSRF protection blocked request: %s", e)
             return
@@ -203,8 +232,9 @@ class HttpFetcher(Fetcher):
         cached_body: str | None,
     ) -> AsyncIterator[str]:
         enc = self._config.encoding
+        connector = _SSRFSafeConnector()
         async with (
-            aiohttp.ClientSession(timeout=timeout, headers=headers) as session,
+            aiohttp.ClientSession(timeout=timeout, headers=headers, connector=connector) as session,
             session.get(url) as resp,
         ):
             if resp.status == 304 and cached_body is not None:
@@ -219,6 +249,8 @@ class HttpFetcher(Fetcher):
             body_path = None
             meta_path, body_path = self._cache_paths(url)
             writer = None
+            tmp: Path | None = None
+            stream_ok = False
             if body_path is not None:
                 tmp = body_path.with_suffix(".tmp")
                 writer = tmp.open("w", encoding=enc)
@@ -236,13 +268,16 @@ class HttpFetcher(Fetcher):
                         yield p.rstrip("\r\n")
                 if buf:
                     yield buf
+                stream_ok = True
             finally:
                 if writer is not None:
                     writer.close()
+                # Clean up .tmp file if streaming failed
+                if not stream_ok and tmp is not None:
+                    tmp.unlink(missing_ok=True)
 
             # success → commit to cache
-            if body_path is not None and meta_path is not None and writer is not None:
-                tmp = body_path.with_suffix(".tmp")
+            if stream_ok and body_path is not None and meta_path is not None and tmp is not None:
                 tmp.replace(body_path)
                 meta: dict[str, str] = {}
                 if etag := resp.headers.get("ETag"):

@@ -37,7 +37,7 @@ class MikrotikHandler(Handler):
         if stripped.startswith("add name="):
             try:
                 name = stripped.split("name=", 1)[1].split(" ", 1)[0].strip('"')
-            except IndexError, ValueError:
+            except (IndexError, ValueError):
                 return Rule.empty()
             detected = detect_base_rule(name)
             if detected is None:
