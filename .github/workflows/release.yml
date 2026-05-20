@@ -62,11 +62,19 @@ jobs:
           BODY="## 📊 Build Report\n\n"
 
           if [ -f "$REPORT" ]; then
-            TOTAL_RULES=$(python3 -c "import json; d=json.load(open('$REPORT')); print(d.get('total_rules', 'N/A'))" 2>/dev/null || echo "N/A")
-            TIMESTAMP=$(python3 -c "import json; d=json.load(open('$REPORT')); print(d.get('timestamp', 'N/A'))" 2>/dev/null || echo "N/A")
+            TOTAL_RULES=$(python3 -c "
+          import json
+          d=json.load(open('$REPORT'))
+          sources=d.get('sources',[])
+          total=sum(s.get('effective',0) for s in sources)
+          print(total if total else d.get('total_rules','N/A'))
+          " 2>/dev/null || echo "N/A")
+            TIMESTAMP=$(python3 -c "import json; d=json.load(open('$REPORT')); print(d.get('finished_at', d.get('timestamp', 'N/A')))" 2>/dev/null || echo "N/A")
+            ELAPSED=$(python3 -c "import json; d=json.load(open('$REPORT')); print(f\"{d.get('elapsed_ms',0)/1000:.1f}s\")" 2>/dev/null || echo "N/A")
             BODY="${BODY}| Metric | Value |\n|--------|-------|\n"
-            BODY="${BODY}| Total Rules | ${TOTAL_RULES} |\n"
+            BODY="${BODY}| Total Rules | **${TOTAL_RULES}** |\n"
             BODY="${BODY}| Build Time | ${TIMESTAMP} |\n"
+            BODY="${BODY}| Duration | ${ELAPSED} |\n"
 
             # Efficiency metrics from build-report sources
             EFFECTIVE=$(python3 -c "
@@ -76,12 +84,12 @@ jobs:
           eff=sum(s.get('effective',0) for s in sources)
           inv=sum(s.get('invalid',0) for s in sources)
           rep=sum(s.get('repeat',0) for s in sources)
-          total=eff+inv+rep if eff else int(d.get('total_rules',0))
-          live=total-inv if total else 0
+          total=eff if eff else 0
+          live=max(0, total-inv)
           rate=live/total*100 if total else 0
-          bloat=(inv+rep)/total*100 if total else 0
-          eff_score=(live-rep)/total*100 if total else 0
-          print(f'{total}|{live}|{inv}|{rep}|{rate:.1f}|{bloat:.1f}|{eff_score:.1f}')
+          bloat=(inv+rep)/(total+inv+rep)*100 if (total+inv+rep) else 0
+          eff_score=live/(total+inv+rep)*100 if (total+inv+rep) else 0
+          print(f'{total+inv+rep}|{live}|{inv}|{rep}|{rate:.1f}|{bloat:.1f}|{eff_score:.1f}')
           " 2>/dev/null || echo "0|0|0|0|0|0|0")
 
             IFS='|' read -r E_TOTAL E_LIVE E_DEAD E_REDUNDANT E_LIVENESS E_BLOAT E_SCORE <<< "$EFFECTIVE"

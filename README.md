@@ -8,7 +8,7 @@
     <a href="https://github.com/Lknife666/adfilter/actions/workflows/ci.yml"><img src="https://github.com/Lknife666/adfilter/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
     <a href="https://github.com/Lknife666/adfilter/actions/workflows/auto-update.yml"><img src="https://github.com/Lknife666/adfilter/actions/workflows/auto-update.yml/badge.svg" alt="Auto Update"></a>
     <a href="https://github.com/Lknife666/adfilter/pkgs/container/adfilter"><img src="https://img.shields.io/badge/ghcr.io-adfilter-blue" alt="Docker"></a>
-    <a href="https://github.com/Lknife666/adfilter/blob/main/LICENSE"><img src="https://img.shields.io/github/license/Lknife666/adfilter" alt="License"></a>
+    <a href="https://github.com/Lknife666/adfilter/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="License"></a>
     <img src="https://img.shields.io/badge/python-3.14%2B-blue" alt="Python">
   </p>
 </p>
@@ -90,12 +90,13 @@ The easiest way to get **your own customized filter list** — no server require
 | Category | Highlights |
 |----------|-----------|
 | **Formats** | 12 output formats including Surge, sing-box, MikroTik, Unbound, Quantumult X, Loon |
-| **CLI** | 9 commands: `run`, `validate`, `convert`, `diff`, `stats`, `doctor`, `serve`, `sources`, `init` |
+| **CLI** | 11 commands: `run`, `validate`, `convert`, `diff`, `stats`, `doctor`, `serve`, `sources`, `init`, `score`, `playground` |
 | **Performance** | Async concurrent HTTP fetching, conditional-GET cache, incremental builds |
-| **Quality** | Subdomain collapse, allow-shadow elimination, multi-source voting, IDN normalization |
-| **Observability** | JSON structured logs, Rich progress bar, build reports |
+| **Quality** | Source quality scoring (A–F), efficiency metrics, dead domain detection, subdomain collapse |
+| **Security** | Content auditor, protected domains, SSRF protection, build manifest, supply chain guards |
+| **Observability** | JSON structured logs, Rich progress bar, build reports, efficiency panels |
 | **Extensibility** | Plugin system via `entry_points` for handlers and notifiers |
-| **Security** | SSRF protection, non-root Docker, Bandit SAST, dependency auditing |
+| **Automation** | Fully unattended: build → audit → publish → GitHub Release (every 8h) |
 | **Notifications** | Telegram, Discord, WeCom webhook alerts on build success/failure |
 
 ---
@@ -219,9 +220,12 @@ docker run --rm -v ./config:/app/config -v ./rule:/app/rule \
 | `adfilter convert <src> <dst>` | One-shot file-to-file format conversion |
 | `adfilter diff <old> <new>` | Compare two rule files by rule identity |
 | `adfilter stats <report.json>` | Pretty-print a build report |
+| `adfilter stats <report> -e` | Show rule efficiency metrics (liveness, bloat) |
 | `adfilter doctor` | Environment + config health check |
 | `adfilter serve --dir rule/` | Serve generated files over HTTP |
 | `adfilter sources list\|add\|remove` | Manage rule sources from built-in catalog |
+| `adfilter score` | Display source quality scores (A–F grade) |
+| `adfilter playground` | Interactive rule debugger (query/whatif) |
 | `adfilter init --preset cn\|jp\|global` | Initialize config from a regional preset |
 | `adfilter formats` | List all supported formats |
 | `adfilter completion bash\|zsh\|fish` | Print shell completion script |
@@ -249,6 +253,15 @@ adfilter init --preset cn --output config/application.yaml
 
 # Add sources from the built-in catalog
 adfilter sources add anti-ad easyprivacy urlhaus
+
+# View source quality scores
+adfilter score
+
+# Interactive rule debugger
+adfilter playground --rule-dir rule/
+
+# Efficiency metrics
+adfilter stats rule/build-report.json --efficiency
 ```
 
 ---
@@ -731,16 +744,22 @@ pip install -e . && adfilter run -c config/application.yaml
 
 ## Roadmap
 
-See [`ROADMAP.md`](ROADMAP.md) for the detailed iteration plan including:
+See [`ROADMAP.md`](ROADMAP.md) for the detailed iteration plan. Current status:
 
-- **v0.4** (current) — Plugin system, source catalog, regional presets, Quantumult X & Loon formats
-- **v1.0** — PyPI release, Helm chart, performance benchmarks, security hardening, i18n
+- **v0.5** ✅ Security — Content auditor, build manifest, protected domains, supply chain guards
+- **v0.6** ✅ Quality — Source quality scoring (A–F), rule efficiency metrics, health dashboard
+- **v0.7** ✅ DX — Interactive playground, JSON Schema for IDE, `stats --efficiency`
+- **v1.0** ✅ Production — Fully autonomous pipeline, audit-gated releases, 7 sources
 
 ---
 
 ## Security
 
+- **Content Auditor**: Checks rules against a protected domains list before publishing; blocks releases that would break critical infrastructure (google.com, github.com, etc.)
+- **Build Guard**: Detects anomalous rule count drops (>30%), source failure ratios, and output file size anomalies
+- **Build Manifest**: Every release includes `manifest.json` with SHA-256 hashes for integrity verification
 - **SSRF Protection**: HTTP fetcher blocks requests to private/reserved IP ranges (RFC 1918, loopback, link-local)
+- **Supply Chain**: Audit-gated publishing — CI won't publish if content audit fails
 - **Non-root Docker**: Container runs as unprivileged `adfilter` user
 - **SAST**: Weekly Bandit scans via CI
 - **Dependency Audit**: Weekly pip-audit + Dependabot auto-updates
