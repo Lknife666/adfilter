@@ -39,6 +39,7 @@ class BuildReport:
 
     def write(self, path: Path) -> None:
         from dataclasses import asdict
+
         path.parent.mkdir(parents=True, exist_ok=True)
         payload: dict[str, object] = {
             "started_at": self.started_at,

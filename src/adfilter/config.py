@@ -25,12 +25,12 @@ class HttpFetcherConfig(BaseModel):
     user_agent: str = "adfilter/0.1"
     headers: dict[str, str] = Field(default_factory=dict)
     # #11 — conditional GET
-    cache_dir: str | None = None              # None disables on-disk cache
+    cache_dir: str | None = None  # None disables on-disk cache
     # #12 — concurrent fetches
     max_concurrency: int = 8
     # v0.2 — error handling / fallback
-    on_failure: str = "cache_then_skip"       # fail_fast | cache_then_skip | skip_always
-    max_cache_age_hours: int = 72             # stale cache limit
+    on_failure: str = "cache_then_skip"  # fail_fast | cache_then_skip | skip_always
+    max_cache_age_hours: int = 72  # stale cache limit
 
 
 class FetcherConfig(BaseModel):
@@ -99,6 +99,7 @@ class InputItem(BaseModel):
 
 class AllowlistItem(BaseModel):
     """An allowlist source (local file or HTTP URL)."""
+
     path: Annotated[str, Field(min_length=1)]
 
 

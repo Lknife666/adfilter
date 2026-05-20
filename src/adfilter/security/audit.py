@@ -82,9 +82,7 @@ class ContentAuditor:
         self.policy = policy
         self.previous_counts = previous_counts or {}
 
-    def audit_domains(
-        self, source_name: str, domains: list[str]
-    ) -> AuditResult:
+    def audit_domains(self, source_name: str, domains: list[str]) -> AuditResult:
         """Audit a list of blocked domains from a single source."""
         alerts: list[SecurityAlert] = []
 
@@ -149,8 +147,6 @@ class ContentAuditor:
             alerts=alerts,
         )
 
-    def audit_batch(
-        self, sources: dict[str, list[str]]
-    ) -> list[AuditResult]:
+    def audit_batch(self, sources: dict[str, list[str]]) -> list[AuditResult]:
         """Audit multiple sources at once."""
         return [self.audit_domains(name, domains) for name, domains in sources.items()]

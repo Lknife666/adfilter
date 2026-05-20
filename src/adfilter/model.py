@@ -31,10 +31,10 @@ class RuleType(StrEnum):
 
 
 class Control(StrEnum):
-    OVERLAY = auto()        # ||  (match subdomains)
-    QUALIFIER = auto()      # ^
-    IMPORTANT = auto()      # $important
-    ALL = auto()            # $all
+    OVERLAY = auto()  # ||  (match subdomains)
+    QUALIFIER = auto()  # ^
+    IMPORTANT = auto()  # $important
+    ALL = auto()  # $all
 
 
 @dataclass(slots=True)
@@ -56,9 +56,7 @@ class Rule:
         return _EMPTY
 
     def is_empty(self) -> bool:
-        return self is _EMPTY or (
-            not self.origin and not self.target and self.type is None
-        )
+        return self is _EMPTY or (not self.origin and not self.target and self.type is None)
 
     def murmur3_hash(self) -> int:
         """Stable 128-bit hash used for dedupe (returns the low 64 bits)."""
@@ -68,10 +66,7 @@ class Rule:
             mode_ord = _ordinal(Mode, self.mode)
             scope_ord = _ordinal(Scope, self.scope)
             type_ord = _ordinal(RuleType, self.type)
-            payload = (
-                self.target.encode("utf-8")
-                + struct.pack(">iii", mode_ord, scope_ord, type_ord)
-            )
+            payload = self.target.encode("utf-8") + struct.pack(">iii", mode_ord, scope_ord, type_ord)
         low, _high = mmh3.hash64(payload, signed=True)
         return low
 

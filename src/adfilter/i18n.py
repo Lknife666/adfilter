@@ -132,7 +132,7 @@ class I18n:
         if kwargs:
             try:
                 return template.format(**{k: str(v) for k, v in kwargs.items()})
-            except (KeyError, ValueError):
+            except KeyError, ValueError:
                 return template
         return template
 

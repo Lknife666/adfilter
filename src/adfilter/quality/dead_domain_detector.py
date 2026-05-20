@@ -49,9 +49,7 @@ class DeadDomainDetector:
         self._results = await asyncio.gather(*tasks)
         return self._results
 
-    async def _check_one(
-        self, domain: str, sem: asyncio.Semaphore
-    ) -> DomainCheckResult:
+    async def _check_one(self, domain: str, sem: asyncio.Semaphore) -> DomainCheckResult:
         """Check a single domain."""
         async with sem:
             try:
@@ -61,18 +59,12 @@ class DeadDomainDetector:
                     timeout=self.timeout,
                 )
                 return DomainCheckResult(domain=domain, is_dead=False)
-            except (socket.gaierror, OSError):
-                return DomainCheckResult(
-                    domain=domain, is_dead=True, reason="NXDOMAIN"
-                )
+            except socket.gaierror, OSError:
+                return DomainCheckResult(domain=domain, is_dead=True, reason="NXDOMAIN")
             except TimeoutError:
-                return DomainCheckResult(
-                    domain=domain, is_dead=True, reason="timeout"
-                )
+                return DomainCheckResult(domain=domain, is_dead=True, reason="timeout")
             except Exception as e:
-                return DomainCheckResult(
-                    domain=domain, is_dead=True, reason=str(e)
-                )
+                return DomainCheckResult(domain=domain, is_dead=True, reason=str(e))
 
     def get_dead_domains(self) -> list[str]:
         """Return the list of dead domains from the last check."""

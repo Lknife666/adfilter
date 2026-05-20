@@ -35,10 +35,15 @@ DOUBLE_PIPE: Final = "||"
 
 # ──────────────────────────── domains ────────────────────────────
 LOCAL_IPS: Final = frozenset({"0.0.0.0", "127.0.0.1", "::1"})
-LOCAL_DOMAINS: Final = frozenset({
-    "localhost", "localhost.localdomain", "local",
-    "ip6-localhost", "ip6-loopback",
-})
+LOCAL_DOMAINS: Final = frozenset(
+    {
+        "localhost",
+        "localhost.localdomain",
+        "local",
+        "ip6-localhost",
+        "ip6-loopback",
+    }
+)
 UNKNOWN_IP: Final = "0.0.0.0"
 LOCALHOST: Final = "localhost"
 
@@ -62,19 +67,19 @@ class Placeholder(StrEnum):
 # ──────────────────────────── enums ────────────────────────────
 class RuleSet(StrEnum):
     EASYLIST = auto()
-    DNS = auto()          # AdGuard Home
+    DNS = auto()  # AdGuard Home
     DNSMASQ = auto()
     SMARTDNS = auto()
     CLASH = auto()
     HOSTS = auto()
     # ── differentiators: formats the Java project does not emit ──
-    SURGE = auto()        # Surge domain-set
-    SINGBOX = auto()      # sing-box JSON ruleset
-    MIKROTIK = auto()     # MikroTik RouterOS /ip dns static script
-    UNBOUND = auto()      # Unbound local-zone
+    SURGE = auto()  # Surge domain-set
+    SINGBOX = auto()  # sing-box JSON ruleset
+    MIKROTIK = auto()  # MikroTik RouterOS /ip dns static script
+    UNBOUND = auto()  # Unbound local-zone
     # ── v0.4 new formats ──
-    QUANTUMULT = auto()   # Quantumult X filter
-    LOON = auto()         # Loon plugin rules
+    QUANTUMULT = auto()  # Quantumult X filter
+    LOON = auto()  # Loon plugin rules
 
 
 class HandleType(StrEnum):

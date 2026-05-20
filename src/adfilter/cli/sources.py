@@ -16,8 +16,9 @@ from . import app
 def cmd_sources(
     action: Annotated[str, typer.Argument(help="list|add|remove")] = "list",
     source_ids: Annotated[list[str] | None, typer.Argument(help="Source IDs to add/remove")] = None,
-    region: Annotated[str | None, typer.Option("--region", "-r",
-                                               help="Filter by region (cn, jp, global)")] = None,
+    region: Annotated[
+        str | None, typer.Option("--region", "-r", help="Filter by region (cn, jp, global)")
+    ] = None,
     config: Annotated[Path, typer.Option("--config", "-c")] = Path("config/application.yaml"),
 ) -> None:
     """Manage rule sources from the built-in catalog."""
@@ -67,7 +68,9 @@ def cmd_sources(
             rules.append({"name": match["id"], "type": match["format"], "path": match["url"]})
             added += 1
             typer.echo(f"added: {match['name']} ({match['url']})")
-        config.write_text(_yaml.dump(cfg_data, allow_unicode=True, default_flow_style=False), encoding="utf-8")
+        config.write_text(
+            _yaml.dump(cfg_data, allow_unicode=True, default_flow_style=False), encoding="utf-8"
+        )
         typer.echo(f"✓ {added} source(s) added to {config}")
 
     elif action == "remove":
@@ -83,7 +86,9 @@ def cmd_sources(
         before = len(rules)
         rules[:] = [r for r in rules if r.get("name") not in source_ids]
         removed = before - len(rules)
-        config.write_text(_yaml.dump(cfg_data, allow_unicode=True, default_flow_style=False), encoding="utf-8")
+        config.write_text(
+            _yaml.dump(cfg_data, allow_unicode=True, default_flow_style=False), encoding="utf-8"
+        )
         typer.echo(f"✓ {removed} source(s) removed from {config}")
 
     else:
@@ -93,10 +98,10 @@ def cmd_sources(
 
 @app.command(name="init")
 def cmd_init(
-    preset: Annotated[str, typer.Option("--preset", "-p",
-                                        help="Regional preset: cn, jp, global")] = "global",
-    output: Annotated[Path, typer.Option("--output", "-o",
-                                         help="Output config file path")] = Path("config/application.yaml"),
+    preset: Annotated[str, typer.Option("--preset", "-p", help="Regional preset: cn, jp, global")] = "global",
+    output: Annotated[Path, typer.Option("--output", "-o", help="Output config file path")] = Path(
+        "config/application.yaml"
+    ),
 ) -> None:
     """Initialize a new configuration from a regional preset."""
     import shutil

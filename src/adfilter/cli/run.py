@@ -51,8 +51,7 @@ async def _run(config: AppConfig, *, report_path: Path | None) -> BuildReport:
     if config.parser.incremental_build:
         prev = load_build_cache(cache_path)
         if prev.get("fingerprint") == fingerprint and (
-            Path(config.output.path).exists()
-            and any(Path(config.output.path).iterdir())
+            Path(config.output.path).exists() and any(Path(config.output.path).iterdir())
         ):
             logging.info("incremental-build: inputs unchanged, skipping rebuild")
             report.incremental_skip = True
@@ -61,9 +60,7 @@ async def _run(config: AppConfig, *, report_path: Path | None) -> BuildReport:
     # prober (optional)
     prober = DnsProber(config.parser.dns_probe) if config.parser.dns_probe.enable else None
 
-    source_reports: dict[str, SourceReport] = {
-        i.name: SourceReport(name=i.name) for i in config.input.input
-    }
+    source_reports: dict[str, SourceReport] = {i.name: SourceReport(name=i.name) for i in config.input.input}
 
     def _on_source_done(s: object) -> None:
         rep = source_reports.get(s.name)  # type: ignore[attr-defined]
@@ -108,7 +105,11 @@ async def _run(config: AppConfig, *, report_path: Path | None) -> BuildReport:
         if item.group:
             source_groups[item.name] = item.group
 
-    optimizer = RuleOptimizer(config.optimizer, allowlist=allowlist_domains or None) if config.optimizer.enable else None
+    optimizer = (
+        RuleOptimizer(config.optimizer, allowlist=allowlist_domains or None)
+        if config.optimizer.enable
+        else None
+    )
 
     t0 = time.monotonic()
 
@@ -169,10 +170,15 @@ async def _run(config: AppConfig, *, report_path: Path | None) -> BuildReport:
         final = await finalise(out, target_dir, config.output.file_header)
         size = final.stat().st_size
         logging.info("wrote %s (%d rules, %d bytes)", final, out.count, size)
-        report.outputs.append(OutputReport(
-            name=out.item.name, type=out.item.type.value,
-            count=out.count, bytes=size, path=str(final),
-        ))
+        report.outputs.append(
+            OutputReport(
+                name=out.item.name,
+                type=out.item.type.value,
+                count=out.count,
+                bytes=size,
+                path=str(final),
+            )
+        )
 
     if prober:
         logging.info("dns prober stats: %s", prober.stats())
@@ -185,6 +191,7 @@ async def _run(config: AppConfig, *, report_path: Path | None) -> BuildReport:
     report.sources = list(source_reports.values())
     report.elapsed_ms = int((time.monotonic() - t0) * 1000)
     from datetime import datetime
+
     report.finished_at = datetime.now(tz=UTC).isoformat()
 
     # v0.3: send success notifications
@@ -228,12 +235,11 @@ def cmd_run(
     config: Annotated[Path, typer.Option("--config", "-c")] = Path("config/application.yaml"),
     log_level: Annotated[str, typer.Option("--log-level", "-l")] = "INFO",
     json_logs: Annotated[bool, typer.Option("--json-logs", help="Emit JSON log lines")] = False,
-    progress: Annotated[bool, typer.Option("--progress/--no-progress",
-                                           help="Show a progress bar")] = False,
-    incremental: Annotated[bool, typer.Option("--incremental/--no-incremental",
-                                              help="Skip run when inputs are unchanged")] = False,
-    report: Annotated[Path | None, typer.Option("--report",
-                                                help="Write a JSON build report")] = None,
+    progress: Annotated[bool, typer.Option("--progress/--no-progress", help="Show a progress bar")] = False,
+    incremental: Annotated[
+        bool, typer.Option("--incremental/--no-incremental", help="Skip run when inputs are unchanged")
+    ] = False,
+    report: Annotated[Path | None, typer.Option("--report", help="Write a JSON build report")] = None,
 ) -> None:
     """Run the full fetch/parse/emit pipeline."""
     try:

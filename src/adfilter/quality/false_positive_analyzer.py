@@ -12,23 +12,25 @@ from dataclasses import dataclass
 log = logging.getLogger(__name__)
 
 # Top domains that should almost never be blocked
-DEFAULT_POPULAR_DOMAINS = frozenset({
-    "google.com",
-    "youtube.com",
-    "facebook.com",
-    "twitter.com",
-    "github.com",
-    "microsoft.com",
-    "apple.com",
-    "amazon.com",
-    "wikipedia.org",
-    "reddit.com",
-    "linkedin.com",
-    "stackoverflow.com",
-    "cloudflare.com",
-    "netflix.com",
-    "spotify.com",
-})
+DEFAULT_POPULAR_DOMAINS = frozenset(
+    {
+        "google.com",
+        "youtube.com",
+        "facebook.com",
+        "twitter.com",
+        "github.com",
+        "microsoft.com",
+        "apple.com",
+        "amazon.com",
+        "wikipedia.org",
+        "reddit.com",
+        "linkedin.com",
+        "stackoverflow.com",
+        "cloudflare.com",
+        "netflix.com",
+        "spotify.com",
+    }
+)
 
 
 @dataclass
@@ -60,9 +62,7 @@ class FalsePositiveAnalyzer:
         self.max_label_count = max_label_count
         self._hits: list[FalsePositiveHit] = []
 
-    def analyze(
-        self, domains: list[str], source_name: str = ""
-    ) -> list[FalsePositiveHit]:
+    def analyze(self, domains: list[str], source_name: str = "") -> list[FalsePositiveHit]:
         """Analyze a list of blocked domains for potential false positives."""
         self._hits = []
 

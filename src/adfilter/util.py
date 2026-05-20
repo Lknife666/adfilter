@@ -38,7 +38,7 @@ def sub_after(s: str, flag: str, *, is_last: bool = False) -> str:
     if not s or not flag:
         return ""
     idx = s.rfind(flag) if is_last else s.find(flag)
-    return s[idx + len(flag):] if idx >= 0 else ""
+    return s[idx + len(flag) :] if idx >= 0 else ""
 
 
 def sub_between(s: str, start: str, end: str) -> str:
@@ -47,7 +47,7 @@ def sub_between(s: str, start: str, end: str) -> str:
     start_idx = s.find(start)
     end_idx = s.rfind(end)
     if start_idx >= 0 and end_idx > 0 and start_idx < end_idx:
-        return s[start_idx + len(start):end_idx]
+        return s[start_idx + len(start) : end_idx]
     return ""
 
 

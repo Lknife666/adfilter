@@ -6,14 +6,10 @@ import re
 from typing import Final
 
 # RFC-1123-ish domain
-PATTERN_DOMAIN: Final = re.compile(
-    r"^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$"
-)
+PATTERN_DOMAIN: Final = re.compile(r"^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$")
 
 # partial domain segment (used for wildcard detection: e.g. "a.b")
-DOMAIN_PART: Final = re.compile(
-    r"^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.?)+[a-zA-Z0-9-]*$"
-)
+DOMAIN_PART: Final = re.compile(r"^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.?)+[a-zA-Z0-9-]*$")
 
 # IPv4 / IPv6 (loose)
 PATTERN_IP: Final = re.compile(

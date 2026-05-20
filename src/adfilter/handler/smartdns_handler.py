@@ -46,11 +46,11 @@ class SmartdnsHandler(Handler):
 
         # strip leading dash/dot; leading "-" marks "only exact domain"
         if domain.startswith(DASH):
-            domain = domain[len(DASH):]
+            domain = domain[len(DASH) :]
         else:
             rule.controls.add(Control.OVERLAY)
         if domain.startswith(DOT):
-            domain = domain[len(DOT):]
+            domain = domain[len(DOT) :]
 
         rule.type = RuleType.WILDCARD if domain.startswith(ASTERISK) else RuleType.BASIC
         rule.target = domain
@@ -85,7 +85,4 @@ class SmartdnsHandler(Handler):
         return line.startswith(HASH)
 
     def commented(self, value: str) -> str:
-        return CRLF.join(
-            f"{HASH}{WHITESPACE}{ln.strip()}"
-            for ln in split_ignore_blank(value, LF)
-        )
+        return CRLF.join(f"{HASH}{WHITESPACE}{ln.strip()}" for ln in split_ignore_blank(value, LF))
