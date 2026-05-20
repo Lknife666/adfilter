@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -107,7 +107,7 @@ class PagesGenerator:
         """
         stats = self._load_stats()
         table_rows = self._build_table_rows()
-        generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        generated_at = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
 
         html = INDEX_TEMPLATE.format(
             total_rules=stats.get("total_rules", "N/A"),
