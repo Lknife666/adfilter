@@ -94,7 +94,7 @@ class InputItem(BaseModel):
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, InputItem):
             return False
-        return self.path == other.path or self.name == other.name
+        return self.path == other.path
 
 
 class AllowlistItem(BaseModel):

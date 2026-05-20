@@ -43,27 +43,57 @@ def cmd_serve(
         raise typer.Exit(code=2)
 
     def _rebuild() -> None:
-        """Run a rebuild and atomically swap the output."""
+        """Run a rebuild and atomically swap the output.
+
+        Uses a temp directory on the same filesystem as the target to
+        ensure os.rename() works (avoids EXDEV on cross-device rename).
+        The swap order is: tmp→target_new, target→backup, target_new→target
+        so that if any step fails the original directory remains intact.
+        """
         try:
             from .run import _run
 
             cfg = AppConfig.from_yaml(config)
-            # Write to a temp dir, then swap
+            # Create temp dir on SAME filesystem as directory (avoids EXDEV)
             import tempfile
 
-            tmp_dir = Path(tempfile.mkdtemp(prefix="adfilter-serve-"))
+            tmp_dir = Path(tempfile.mkdtemp(prefix="adfilter-serve-", dir=str(directory.parent)))
             cfg.output.path = str(tmp_dir)
             asyncio.run(_run(cfg, report_path=None))
-            # Atomic swap: rename temp to target
+
+            # Safe atomic swap — never leave directory in a broken state
+            # Step 1: rename tmp to a staging name next to target
+            staging = directory.with_suffix(".new")
+            if staging.exists():
+                shutil.rmtree(staging)
+            tmp_dir.rename(staging)
+
+            # Step 2: move current directory to backup
             backup = directory.with_suffix(".old")
             if backup.exists():
                 shutil.rmtree(backup)
             directory.rename(backup)
-            tmp_dir.rename(directory)
+
+            # Step 3: promote staging to the real directory
+            try:
+                staging.rename(directory)
+            except OSError:
+                # Rollback: restore backup if promotion fails
+                backup.rename(directory)
+                raise
+
+            # Cleanup
             shutil.rmtree(backup, ignore_errors=True)
             logging.info("auto-refresh: rebuild complete, directory swapped")
         except Exception as e:  # noqa: BLE001
             logging.error("auto-refresh rebuild failed: %s", e)
+            # Clean up any leftover temp/staging dirs
+            for leftover in (tmp_dir, staging):
+                try:
+                    if leftover.exists():
+                        shutil.rmtree(leftover)
+                except Exception:  # noqa: BLE001
+                    pass
 
     if auto_refresh:
         setup_logging("INFO")
