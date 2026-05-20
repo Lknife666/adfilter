@@ -44,6 +44,7 @@ jobs:
           sparse-checkout: |
             src/
             pyproject.toml
+            config/protected_domains.txt
 
       - name: Determine release tag
         id: tag
@@ -55,7 +56,6 @@ jobs:
       - name: Collect quality metrics for release body
         id: metrics
         run: |
-          # Extract stats from build-report.json
           REPORT="build-report.json"
           MANIFEST="manifest.json"
 
@@ -67,6 +67,64 @@ jobs:
             BODY="${BODY}| Metric | Value |\n|--------|-------|\n"
             BODY="${BODY}| Total Rules | ${TOTAL_RULES} |\n"
             BODY="${BODY}| Build Time | ${TIMESTAMP} |\n"
+
+            # Efficiency metrics from build-report sources
+            EFFECTIVE=$(python3 -c "
+          import json
+          d=json.load(open('$REPORT'))
+          sources=d.get('sources',[])
+          eff=sum(s.get('effective',0) for s in sources)
+          inv=sum(s.get('invalid',0) for s in sources)
+          rep=sum(s.get('repeat',0) for s in sources)
+          total=eff+inv+rep if eff else int(d.get('total_rules',0))
+          live=total-inv if total else 0
+          rate=live/total*100 if total else 0
+          bloat=(inv+rep)/total*100 if total else 0
+          eff_score=(live-rep)/total*100 if total else 0
+          print(f'{total}|{live}|{inv}|{rep}|{rate:.1f}|{bloat:.1f}|{eff_score:.1f}')
+          " 2>/dev/null || echo "0|0|0|0|0|0|0")
+
+            IFS='|' read -r E_TOTAL E_LIVE E_DEAD E_REDUNDANT E_LIVENESS E_BLOAT E_SCORE <<< "$EFFECTIVE"
+
+            BODY="${BODY}\n## ⚡ Rule Efficiency\n\n"
+            BODY="${BODY}| Metric | Value | Status |\n|--------|-------|--------|\n"
+
+            # Determine grade
+            if (( $(echo "$E_SCORE >= 90" | bc -l 2>/dev/null || echo 0) )); then
+              GRADE="🟢 Excellent"
+            elif (( $(echo "$E_SCORE >= 75" | bc -l 2>/dev/null || echo 0) )); then
+              GRADE="🟢 Good"
+            elif (( $(echo "$E_SCORE >= 60" | bc -l 2>/dev/null || echo 0) )); then
+              GRADE="🟡 Fair"
+            else
+              GRADE="🔴 Needs Attention"
+            fi
+
+            BODY="${BODY}| Efficiency Score | **${E_SCORE}%** | ${GRADE} |\n"
+            BODY="${BODY}| Liveness Rate | ${E_LIVENESS}% | Live domains |\n"
+            BODY="${BODY}| Bloat Ratio | ${E_BLOAT}% | Dead + redundant |\n"
+            BODY="${BODY}| Live Domains | ${E_LIVE} | — |\n"
+            BODY="${BODY}| Dead/Invalid | ${E_DEAD} | Could be pruned |\n"
+            BODY="${BODY}| Redundant | ${E_REDUNDANT} | Covered by parent |\n"
+          fi
+
+          # Source quality summary
+          if [ -f "$REPORT" ]; then
+            SOURCE_TABLE=$(python3 -c "
+          import json
+          d=json.load(open('$REPORT'))
+          sources=d.get('sources',[])
+          if sources:
+              print('| Source | Effective | Invalid | Repeat | Elapsed |')
+              print('|--------|-----------|---------|--------|---------|')
+              for s in sources:
+                  print(f'| {s[\"name\"]} | {s.get(\"effective\",0)} | {s.get(\"invalid\",0)} | {s.get(\"repeat\",0)} | {s.get(\"elapsed_ms\",0)}ms |')
+          " 2>/dev/null || echo "")
+
+            if [ -n "$SOURCE_TABLE" ]; then
+              BODY="${BODY}\n## 📡 Source Health\n\n"
+              BODY="${BODY}${SOURCE_TABLE}\n"
+            fi
           fi
 
           # File sizes table
@@ -95,7 +153,6 @@ jobs:
           BODY="${BODY}🔗 **Subscribe**: Use raw URLs from this release, e.g.:\n"
           BODY="${BODY}\`\`\`\nhttps://github.com/${{ github.repository }}/releases/latest/download/dns.txt\n\`\`\`\n"
 
-          # Write body to file (multiline safe)
           printf '%b' "$BODY" > /tmp/release_body.md
 
       - name: Delete existing release for today (if re-running)
@@ -103,9 +160,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${{ steps.tag.outputs.date_tag }}"
-          # Delete release if exists
           gh release delete "$TAG" --yes 2>/dev/null || true
-          # Delete tag if exists
           git tag -d "$TAG" 2>/dev/null || true
           git push origin ":refs/tags/$TAG" 2>/dev/null || true
 
@@ -116,14 +171,12 @@ jobs:
           TAG="${{ steps.tag.outputs.date_tag }}"
           TITLE="${{ steps.tag.outputs.release_name }}"
 
-          # Collect all rule files (exclude .git and README)
           FILES=()
           for f in *.txt *.conf *.yaml *.json *.rsc *.html; do
             [ -f "$f" ] || continue
             FILES+=("$f")
           done
 
-          # Create release with all files attached individually
           gh release create "$TAG" \
             --title "$TITLE" \
             --notes-file /tmp/release_body.md \

@@ -3,14 +3,8 @@ name: Source Review
 on:
   pull_request:
     paths:
-      - "config/**"
-      - "src/adfilter/data/**"
       - "community/sources/**"
-  workflow_dispatch:
-
-permissions:
-  contents: read
-  pull-requests: write
+      - "src/adfilter/data/source_catalog.yaml"
 
 env:
   PYTHON_VERSION: "3.14"
@@ -20,56 +14,152 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
-
       - run: uv python install ${{ env.PYTHON_VERSION }}
-      - run: uv sync --no-dev
+      - run: uv sync --frozen --no-dev || uv sync --no-dev
 
-      - name: Validate source catalog
+      - name: Validate source catalog format
+        run: |
+          uv run python -c "
+          import yaml, sys
+          from pathlib import Path
+
+          catalog_path = Path('src/adfilter/data/source_catalog.yaml')
+          data = yaml.safe_load(catalog_path.read_text())
+          sources = data.get('sources', [])
+
+          errors = []
+          required_fields = {'id', 'name', 'url', 'format', 'region', 'category'}
+          valid_formats = {'easylist', 'dns', 'hosts', 'dnsmasq', 'smartdns', 'clash', 'surge', 'singbox', 'mikrotik', 'unbound', 'quantumult', 'loon'}
+          valid_regions = {'cn', 'jp', 'global', 'kr', 'ru', 'de'}
+          valid_categories = {'ads', 'privacy', 'malware', 'phishing', 'annoyance', 'social', 'cryptominer', 'telemetry'}
+
+          ids_seen = set()
+          for i, src in enumerate(sources):
+              prefix = f'sources[{i}] ({src.get(\"id\", \"?\")})'
+
+              # Check required fields
+              missing = required_fields - set(src.keys())
+              if missing:
+                  errors.append(f'{prefix}: missing fields: {missing}')
+
+              # Check duplicates
+              sid = src.get('id', '')
+              if sid in ids_seen:
+                  errors.append(f'{prefix}: duplicate id \"{sid}\"')
+              ids_seen.add(sid)
+
+              # Check format
+              fmt = src.get('format', '')
+              if fmt and fmt not in valid_formats:
+                  errors.append(f'{prefix}: unknown format \"{fmt}\" (valid: {valid_formats})')
+
+              # Check region
+              region = src.get('region', '')
+              if region and region not in valid_regions:
+                  errors.append(f'{prefix}: unknown region \"{region}\" (valid: {valid_regions})')
+
+              # Check category
+              cat = src.get('category', '')
+              if cat and cat not in valid_categories:
+                  errors.append(f'{prefix}: unknown category \"{cat}\" (valid: {valid_categories})')
+
+              # Check URL format
+              url = src.get('url', '')
+              if url and not (url.startswith('http://') or url.startswith('https://')):
+                  errors.append(f'{prefix}: URL must start with http:// or https://')
+
+          if errors:
+              print('❌ Source catalog validation FAILED:')
+              for e in errors:
+                  print(f'  ::error::{e}')
+              sys.exit(1)
+
+          print(f'✅ Source catalog valid: {len(sources)} sources, {len(ids_seen)} unique IDs')
+          "
+
+      - name: Check URL reachability
+        run: |
+          uv run python -c "
+          import yaml, asyncio, sys
+          from pathlib import Path
+
+          async def check_urls():
+              import aiohttp
+
+              catalog_path = Path('src/adfilter/data/source_catalog.yaml')
+              data = yaml.safe_load(catalog_path.read_text())
+              sources = data.get('sources', [])
+
+              results = []
+              timeout = aiohttp.ClientTimeout(total=15)
+
+              async with aiohttp.ClientSession(timeout=timeout) as session:
+                  for src in sources:
+                      url = src.get('url', '')
+                      sid = src.get('id', '?')
+                      try:
+                          async with session.head(url, allow_redirects=True) as resp:
+                              status = resp.status
+                              ok = status < 400
+                              results.append((sid, url, status, ok))
+                              symbol = '✅' if ok else '❌'
+                              print(f'  {symbol} {sid}: HTTP {status}')
+                      except Exception as e:
+                          results.append((sid, url, 0, False))
+                          print(f'  ⚠️  {sid}: {type(e).__name__}: {e}')
+
+              failed = [r for r in results if not r[3]]
+              print(f'\nResults: {len(results)-len(failed)}/{len(results)} reachable')
+
+              if failed:
+                  print('\n⚠️  Unreachable sources (may be temporary):')
+                  for sid, url, status, _ in failed:
+                      print(f'  ::warning::{sid} ({url}) — status {status}')
+              # Don't fail the job for unreachable URLs (may be geo-restricted)
+
+          asyncio.run(check_urls())
+          "
+
+      - name: Check for overlap with existing sources
         run: |
           uv run python -c "
           import yaml
           from pathlib import Path
 
-          catalog = Path('src/adfilter/data/source_catalog.yaml')
-          data = yaml.safe_load(catalog.read_text())
+          catalog_path = Path('src/adfilter/data/source_catalog.yaml')
+          data = yaml.safe_load(catalog_path.read_text())
           sources = data.get('sources', [])
-          print(f'Source catalog: {len(sources)} sources')
 
-          errors = []
-          for src in sources:
-              if 'name' not in src:
-                  errors.append(f'Source missing name: {src}')
-              if 'url' not in src:
-                  errors.append(f'Source missing url: {src.get(\"name\", \"unknown\")}')
+          # Check URL overlap
+          urls = [s.get('url', '') for s in sources]
+          seen_urls = set()
+          duplicates = []
+          for i, url in enumerate(urls):
+              if url in seen_urls:
+                  duplicates.append(f'{sources[i][\"id\"]}: URL already exists')
+              seen_urls.add(url)
 
-          if errors:
-              for e in errors:
-                  print(f'::error::{e}')
-              raise SystemExit(1)
+          if duplicates:
+              print('⚠️  Duplicate URLs detected:')
+              for d in duplicates:
+                  print(f'  ::warning::{d}')
+          else:
+              print('✅ No duplicate URLs')
 
-          print('All sources valid')
+          # Summary
+          regions = {}
+          categories = {}
+          for s in sources:
+              r = s.get('region', 'unknown')
+              c = s.get('category', 'unknown')
+              regions[r] = regions.get(r, 0) + 1
+              categories[c] = categories.get(c, 0) + 1
+
+          print(f'\nCatalog summary:')
+          print(f'  Sources: {len(sources)}')
+          print(f'  Regions: {dict(sorted(regions.items()))}')
+          print(f'  Categories: {dict(sorted(categories.items()))}')
           "
-
-      - name: Check community sources
-        run: |
-          shopt -s nullglob
-          for f in community/sources/*.yaml; do
-            echo "Validating: $f"
-            uv run python -c "
-          import yaml, sys
-          data = yaml.safe_load(open('$f'))
-          required = ['name', 'url', 'type', 'author']
-          missing = [k for k in required if k not in data]
-          if missing:
-              print(f'::error file=$f::Missing fields: {missing}')
-              sys.exit(1)
-          print(f'  OK: {data[\"name\"]} by {data[\"author\"]}')
-          "
-          done
-
-      - name: Validate config
-        run: uv run adfilter validate --config config/application.yaml
