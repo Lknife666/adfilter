@@ -119,11 +119,13 @@ class TestDetectBaseRule:
 class TestNormalizePath:
     def test_absolute(self):
         from pathlib import Path
+
         result = normalize_path("/tmp/file.txt")
         assert result == Path("/tmp/file.txt")
 
     def test_relative_with_root(self):
         from pathlib import Path
+
         result = normalize_path("file.txt", root=Path("/opt"))
         assert result == Path("/opt/file.txt")
 

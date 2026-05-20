@@ -48,7 +48,7 @@ class TestFormat:
             type=RuleType.BASIC,
         )
         result = handler.format(rule)
-        assert result == "  - \"example.com\""
+        assert result == '  - "example.com"'
 
     def test_overlay_domain(self, handler):
         rule = Rule(
@@ -59,7 +59,7 @@ class TestFormat:
             controls={Control.OVERLAY},
         )
         result = handler.format(rule)
-        assert result == "  - \"+.example.com\""
+        assert result == '  - "+.example.com"'
 
     def test_allow_skipped(self, handler):
         rule = Rule(

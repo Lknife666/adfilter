@@ -17,9 +17,7 @@ class TestAuditPolicy:
 
     def test_from_file(self, tmp_path):
         domains_file = tmp_path / "protected.txt"
-        domains_file.write_text(
-            "# comment\ngoogle.com\ngithub.com\n\n  apple.com  \n"
-        )
+        domains_file.write_text("# comment\ngoogle.com\ngithub.com\n\n  apple.com  \n")
         policy = AuditPolicy.from_file(domains_file)
         assert "google.com" in policy.protected_domains
         assert "github.com" in policy.protected_domains
@@ -107,10 +105,12 @@ class TestContentAuditor:
 
     def test_audit_batch(self):
         auditor = self._make_auditor(protected=["google.com"])
-        results = auditor.audit_batch({
-            "good-source": ["ads.example.com"],
-            "bad-source": ["google.com"],
-        })
+        results = auditor.audit_batch(
+            {
+                "good-source": ["ads.example.com"],
+                "bad-source": ["google.com"],
+            }
+        )
         assert len(results) == 2
         assert results[0].passed
         assert not results[1].passed
@@ -147,9 +147,7 @@ class TestBuildGuardEnhancements:
         from adfilter.build_guard import post_build_checks
 
         (tmp_path / "dns.txt").write_text("x\n" * 10)
-        result = post_build_checks(
-            tmp_path, previous_sizes={"dns.txt": 10000}
-        )
+        result = post_build_checks(tmp_path, previous_sizes={"dns.txt": 10000})
         assert not result.passed
         assert "shrank" in result.errors[0]
 
