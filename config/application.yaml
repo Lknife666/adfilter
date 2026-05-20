@@ -10,12 +10,6 @@ application:
           - name: anti-ad
             type: easylist
             path: https://anti-ad.net/easylist.txt
-          - name: easylist
-            type: easylist
-            path: https://easylist.to/easylist/easylist.txt
-          - name: easyprivacy
-            type: easylist
-            path: https://easylist.to/easylist/easyprivacy.txt
           - name: adguard-dns
             type: dns
             path: https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt
@@ -64,10 +58,12 @@ application:
 
     fetcher:
       http:
-        timeout_seconds: 60
-        max_retries: 3
-        max_concurrency: 8       # feature #12
-        cache_dir: .cache/http   # feature #11 — conditional-GET cache
+        timeout_seconds: 120
+        max_retries: 2
+        max_concurrency: 4
+        cache_dir: .cache/http
+        on_failure: cache_then_skip
+        max_cache_age_hours: 72
 
     parser:
       alert_length: 6
