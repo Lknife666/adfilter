@@ -10,6 +10,24 @@ application:
           - name: anti-ad
             type: easylist
             path: https://anti-ad.net/easylist.txt
+          - name: easylist
+            type: easylist
+            path: https://easylist.to/easylist/easylist.txt
+          - name: easyprivacy
+            type: easylist
+            path: https://easylist.to/easylist/easyprivacy.txt
+          - name: adguard-dns
+            type: dns
+            path: https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt
+          - name: peter-lowe
+            type: hosts
+            path: https://pgl.yoyo.org/adservers/serverlist.php?hostformat=hosts&showintro=0&mimetype=plaintext
+          - name: urlhaus
+            type: hosts
+            path: https://urlhaus.abuse.ch/downloads/hostfile/
+          - name: phishing-army
+            type: easylist
+            path: https://phishing.army/download/phishing_army_blocklist.txt
 
     output:
       path: ./rule

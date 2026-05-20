@@ -160,15 +160,28 @@ jobs:
       - name: Generate build manifest
         run: |
           uv run python -c "
-          from adfilter.build_guard import generate_manifest, write_manifest
+          import json
           from pathlib import Path
+          from adfilter.build_guard import generate_manifest, write_manifest
+
+          # Inject total_rules into build-report for release.yml compatibility
+          report_path = Path('rule/build-report.json')
+          if report_path.exists():
+              data = json.loads(report_path.read_text())
+              sources = data.get('sources', [])
+              total = sum(s.get('effective', 0) for s in sources)
+              data['total_rules'] = total
+              data['timestamp'] = data.get('finished_at', '')
+              report_path.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+
           manifest = generate_manifest(
               Path('rule'),
               git_commit='${{ github.sha }}',
               adfilter_version='1.0.0',
+              sources_fetched=len(json.loads(report_path.read_text()).get('sources', [])) if report_path.exists() else 0,
           )
           write_manifest(Path('rule'), manifest)
-          print(f'Manifest: {len(manifest.files)} files')
+          print(f'Manifest: {len(manifest.files)} files, total_rules={total if report_path.exists() else 0}')
           "
 
       - name: Post-build safety checks
