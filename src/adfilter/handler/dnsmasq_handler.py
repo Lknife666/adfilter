@@ -74,7 +74,4 @@ class DnsmasqHandler(Handler):
         return line.startswith(HASH)
 
     def commented(self, value: str) -> str:
-        return CRLF.join(
-            f"{HASH}{WHITESPACE}{ln.strip()}"
-            for ln in split_ignore_blank(value, LF)
-        )
+        return CRLF.join(f"{HASH}{WHITESPACE}{ln.strip()}" for ln in split_ignore_blank(value, LF))

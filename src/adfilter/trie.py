@@ -152,9 +152,7 @@ class DomainTrie:
         self._collect(self._root, [], results)
         return results
 
-    def _collect(
-        self, node: TrieNode, path: list[str], results: list[str]
-    ) -> None:
+    def _collect(self, node: TrieNode, path: list[str], results: list[str]) -> None:
         if node.is_terminal:
             results.append(".".join(reversed(path)))
         for label, child in node.children.items():

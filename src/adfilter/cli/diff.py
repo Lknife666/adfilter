@@ -37,8 +37,7 @@ def _collect_hashes(path: Path, fmt: RuleSet) -> set[int]:
 def cmd_diff(
     old: Annotated[Path, typer.Argument(help="Previous rule file")],
     new: Annotated[Path, typer.Argument(help="New rule file")],
-    fmt: Annotated[RuleSet, typer.Option("--format", "-f",
-                                         help="Format of both files")] = RuleSet.EASYLIST,
+    fmt: Annotated[RuleSet, typer.Option("--format", "-f", help="Format of both files")] = RuleSet.EASYLIST,
 ) -> None:
     """Compare two rule files by rule identity (not by byte-level text)."""
     setup_logging("WARNING")
@@ -48,7 +47,8 @@ def cmd_diff(
     removed = len(old_h - new_h)
     unchanged = len(old_h & new_h)
     table = Table(title="rule diff", show_header=True)
-    table.add_column("metric"); table.add_column("count", justify="right")
+    table.add_column("metric")
+    table.add_column("count", justify="right")
     table.add_row("unchanged", str(unchanged))
     table.add_row("[green]added[/]", str(added))
     table.add_row("[red]removed[/]", str(removed))

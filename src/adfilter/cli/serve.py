@@ -16,14 +16,15 @@ from . import app
 
 @app.command(name="serve")
 def cmd_serve(
-    directory: Annotated[Path, typer.Option("--dir", "-d",
-                                            help="Directory to serve")] = Path("rule"),
+    directory: Annotated[Path, typer.Option("--dir", "-d", help="Directory to serve")] = Path("rule"),
     host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
     port: Annotated[int, typer.Option("--port", "-p")] = 8787,
-    auto_refresh: Annotated[bool, typer.Option("--auto-refresh/--no-auto-refresh",
-                                               help="Periodically rebuild rules")] = False,
-    refresh_interval: Annotated[int, typer.Option("--refresh-interval",
-                                                  help="Minutes between rebuilds")] = 480,
+    auto_refresh: Annotated[
+        bool, typer.Option("--auto-refresh/--no-auto-refresh", help="Periodically rebuild rules")
+    ] = False,
+    refresh_interval: Annotated[
+        int, typer.Option("--refresh-interval", help="Minutes between rebuilds")
+    ] = 480,
     config: Annotated[Path, typer.Option("--config", "-c")] = Path("config/application.yaml"),
 ) -> None:
     """Serve the generated rule directory over HTTP (handy for LAN subscribe URLs).
@@ -49,6 +50,7 @@ def cmd_serve(
             cfg = AppConfig.from_yaml(config)
             # Write to a temp dir, then swap
             import tempfile
+
             tmp_dir = Path(tempfile.mkdtemp(prefix="adfilter-serve-"))
             cfg.output.path = str(tmp_dir)
             asyncio.run(_run(cfg, report_path=None))
@@ -68,6 +70,7 @@ def cmd_serve(
 
         def _scheduler() -> None:
             import time as _time
+
             while True:
                 _time.sleep(refresh_interval * 60)
                 _rebuild()

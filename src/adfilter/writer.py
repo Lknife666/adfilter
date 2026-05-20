@@ -86,8 +86,7 @@ def build_header(item: OutputItem, parent_header: str, total: int) -> str:
 
     if tpl.strip():
         body = (
-            tpl
-            .replace(Placeholder.DATE.value, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            tpl.replace(Placeholder.DATE.value, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
             .replace(Placeholder.NAME.value, item.name)
             .replace(Placeholder.DESC.value, item.desc)
             .replace(Placeholder.TYPE.value, item.type.value.lower())
@@ -181,9 +180,7 @@ def _write_singbox(intermediate: Path, temp: Path, header: str) -> None:
 
     # sidecar so the human-readable header isn't lost
     if header.strip():
-        intermediate.with_suffix(intermediate.suffix + ".about.txt").write_text(
-            header, encoding="utf-8"
-        )
+        intermediate.with_suffix(intermediate.suffix + ".about.txt").write_text(header, encoding="utf-8")
 
 
 # ─────────────── #17 incremental-build fingerprint ───────────────
@@ -203,7 +200,7 @@ def load_build_cache(path: Path) -> dict:
         return {}
     try:
         return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except OSError, json.JSONDecodeError:
         return {}
 
 

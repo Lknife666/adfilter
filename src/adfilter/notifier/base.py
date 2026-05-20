@@ -60,6 +60,7 @@ def discover_notifier_plugins() -> None:
 @dataclass
 class NotifyPayload:
     """Data passed to notifiers."""
+
     success: bool
     report: BuildReport | None
     error_message: str = ""

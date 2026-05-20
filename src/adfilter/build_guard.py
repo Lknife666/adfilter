@@ -81,9 +81,7 @@ class BuildGuard:
 
         # Check minimum threshold
         if total_rules < self.min_rules:
-            result.add_error(
-                f"Rule count {total_rules} is below minimum threshold {self.min_rules}"
-            )
+            result.add_error(f"Rule count {total_rules} is below minimum threshold {self.min_rules}")
 
         # Check drop from previous build
         prev_count = self._previous_state.get("total_rules", 0)
@@ -96,10 +94,7 @@ class BuildGuard:
                     f"threshold is {self.drop_threshold:.0%}"
                 )
             elif drop_ratio > self.drop_threshold * 0.5:
-                result.add_warning(
-                    f"Rule count decreased by {drop_ratio:.1%} "
-                    f"({prev_count} → {total_rules})"
-                )
+                result.add_warning(f"Rule count decreased by {drop_ratio:.1%} ({prev_count} → {total_rules})")
 
         # Check source failures
         if sources:
@@ -146,10 +141,7 @@ class BuildGuard:
             "sources": {},
         }
         if sources:
-            state["sources"] = {
-                s.name: {"success": s.success, "rule_count": s.rule_count}
-                for s in sources
-            }
+            state["sources"] = {s.name: {"success": s.success, "rule_count": s.rule_count} for s in sources}
         try:
             self.state_file.parent.mkdir(parents=True, exist_ok=True)
             with self.state_file.open("w", encoding="utf-8") as f:
@@ -243,15 +235,9 @@ def post_build_checks(
         if prev_size > 0:
             ratio = size / prev_size
             if ratio < max_shrink_ratio:
-                result.add_error(
-                    f"{f.name} shrank to {ratio:.0%} of previous size "
-                    f"({prev_size} → {size})"
-                )
+                result.add_error(f"{f.name} shrank to {ratio:.0%} of previous size ({prev_size} → {size})")
             elif ratio > max_grow_ratio:
-                result.add_warning(
-                    f"{f.name} grew to {ratio:.0%} of previous size "
-                    f"({prev_size} → {size})"
-                )
+                result.add_warning(f"{f.name} grew to {ratio:.0%} of previous size ({prev_size} → {size})")
 
     return result
 

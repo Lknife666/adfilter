@@ -37,7 +37,7 @@ class UnboundHandler(Handler):
             if not parts:
                 return Rule.empty()
             domain = parts[0].strip('"').rstrip(".")
-        except (IndexError, ValueError):
+        except IndexError, ValueError:
             return Rule.empty()
         detected = detect_base_rule(domain)
         if detected is None:
@@ -66,7 +66,4 @@ class UnboundHandler(Handler):
         return line.lstrip().startswith(HASH)
 
     def commented(self, value: str) -> str:
-        return CRLF.join(
-            f"{HASH}{WHITESPACE}{ln.strip()}"
-            for ln in split_ignore_blank(value, LF)
-        )
+        return CRLF.join(f"{HASH}{WHITESPACE}{ln.strip()}" for ln in split_ignore_blank(value, LF))

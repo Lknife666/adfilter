@@ -134,12 +134,14 @@ class CustomSubscriptionBuilder:
             lines.append("            type: easylist")
             lines.append(f"            path: # Add URL for {source}")
 
-        lines.extend([
-            "",
-            "    output:",
-            "      path: ./rule",
-            "      files:",
-        ])
+        lines.extend(
+            [
+                "",
+                "    output:",
+                "      path: ./rule",
+                "      files:",
+            ]
+        )
 
         format_extensions = {
             "dns": "dns.txt",
