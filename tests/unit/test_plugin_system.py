@@ -12,9 +12,18 @@ class TestPluginDiscovery:
     def test_all_builtin_handlers_registered(self):
         """All 12 built-in handlers should be registered."""
         expected = {
-            RuleSet.EASYLIST, RuleSet.DNS, RuleSet.DNSMASQ, RuleSet.SMARTDNS,
-            RuleSet.CLASH, RuleSet.HOSTS, RuleSet.SURGE, RuleSet.SINGBOX,
-            RuleSet.MIKROTIK, RuleSet.UNBOUND, RuleSet.QUANTUMULT, RuleSet.LOON,
+            RuleSet.EASYLIST,
+            RuleSet.DNS,
+            RuleSet.DNSMASQ,
+            RuleSet.SMARTDNS,
+            RuleSet.CLASH,
+            RuleSet.HOSTS,
+            RuleSet.SURGE,
+            RuleSet.SINGBOX,
+            RuleSet.MIKROTIK,
+            RuleSet.UNBOUND,
+            RuleSet.QUANTUMULT,
+            RuleSet.LOON,
         }
         assert expected.issubset(set(_REGISTRY.keys()))
 

@@ -17,9 +17,7 @@ class TestRuleScorer:
 
     def test_single_domain_single_source(self):
         scorer = RuleScorer()
-        results = scorer.score_rules(
-            {"ads.example.com": ["source1"]}, total_sources=5
-        )
+        results = scorer.score_rules({"ads.example.com": ["source1"]}, total_sources=5)
         assert len(results) == 1
         assert 0.0 <= results[0].score <= 1.0
         assert results[0].domain == "ads.example.com"
@@ -76,9 +74,7 @@ class TestRuleScorer:
 
     def test_average_score(self):
         scorer = RuleScorer()
-        scorer.score_rules(
-            {"a.com": ["s1"], "b.com": ["s1"]}, total_sources=1
-        )
+        scorer.score_rules({"a.com": ["s1"], "b.com": ["s1"]}, total_sources=1)
         avg = scorer.average_score
         assert 0.0 < avg < 1.0
 

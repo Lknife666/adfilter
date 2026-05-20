@@ -80,7 +80,6 @@ class TestBuildHeader:
         assert "payload:" in header
 
 
-
 class TestWriteSingbox:
     """Test the _write_singbox JSON assembly function."""
 
@@ -116,9 +115,7 @@ class TestWriteSingbox:
 
         temp = tmp_path / "input.tmp"
         temp.write_text(
-            '// this is a comment\n'
-            '# another comment\n'
-            '{"domain_suffix": ["only.com"]}\n',
+            '// this is a comment\n# another comment\n{"domain_suffix": ["only.com"]}\n',
             encoding="utf-8",
         )
         output = tmp_path / "output.json"

@@ -45,26 +45,20 @@ class TestBuildGuardDropDetection:
     def test_detects_large_drop(self, state_file: Path):
         # Seed previous state
         state_file.write_text(json.dumps({"total_rules": 1000}))
-        guard = BuildGuard(
-            drop_threshold=0.3, min_rules=100, state_file=state_file
-        )
+        guard = BuildGuard(drop_threshold=0.3, min_rules=100, state_file=state_file)
         result = guard.check(500)  # 50% drop
         assert result.passed is False
         assert any("dropped" in e.lower() for e in result.errors)
 
     def test_no_drop_passes(self, state_file: Path):
         state_file.write_text(json.dumps({"total_rules": 1000}))
-        guard = BuildGuard(
-            drop_threshold=0.3, min_rules=100, state_file=state_file
-        )
+        guard = BuildGuard(drop_threshold=0.3, min_rules=100, state_file=state_file)
         result = guard.check(950)
         assert result.passed is True
 
     def test_small_drop_warns(self, state_file: Path):
         state_file.write_text(json.dumps({"total_rules": 1000}))
-        guard = BuildGuard(
-            drop_threshold=0.3, min_rules=100, state_file=state_file
-        )
+        guard = BuildGuard(drop_threshold=0.3, min_rules=100, state_file=state_file)
         result = guard.check(820)  # 18% drop (above 15% warning threshold)
         assert result.passed is True
         assert len(result.warnings) > 0

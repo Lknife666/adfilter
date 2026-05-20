@@ -45,10 +45,9 @@ class TestDeadDomainDetectorAsync:
         detector = DeadDomainDetector(timeout=1.0, max_concurrency=5)
 
         import socket
+
         with patch("asyncio.get_event_loop") as mock_loop:
-            mock_loop.return_value.getaddrinfo = AsyncMock(
-                side_effect=socket.gaierror("NXDOMAIN")
-            )
+            mock_loop.return_value.getaddrinfo = AsyncMock(side_effect=socket.gaierror("NXDOMAIN"))
             results = await detector.check_domains(["dead.example.invalid"])
             assert len(results) == 1
             assert results[0].is_dead is True

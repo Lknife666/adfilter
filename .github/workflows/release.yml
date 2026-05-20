@@ -1,59 +1,133 @@
-name: Release to PyPI
+name: Publish Release
+
 on:
-  push:
-    tags: ["v*"]
+  workflow_run:
+    workflows: ["Update Filters"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  TZ: Asia/Shanghai
+  PYTHON_VERSION: "3.14"
 
 permissions:
   contents: write
-  id-token: write  # Required for Trusted Publisher
+
+concurrency:
+  group: publish-release
+  cancel-in-progress: false
 
 jobs:
-  publish:
+  release:
     runs-on: ubuntu-latest
-    environment: release
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: release
+          fetch-depth: 1
+
       - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
-      - run: uv python install 3.14
-      - run: uv build
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+      - run: uv python install ${{ env.PYTHON_VERSION }}
 
-  github-release:
-    runs-on: ubuntu-latest
-    needs: publish
-    steps:
-      - uses: actions/checkout@v4
+      - name: Checkout source for scripts
+        uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-      - name: Generate changelog
-        id: changelog
+          ref: main
+          path: _src
+          sparse-checkout: |
+            src/
+            pyproject.toml
+
+      - name: Determine release tag
+        id: tag
         run: |
-          # Extract version from tag
-          VERSION=${GITHUB_REF#refs/tags/v}
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          # Generate changelog from commits since last tag
-          PREV_TAG=$(git tag --sort=-v:refname | head -2 | tail -1)
-          if [ -z "$PREV_TAG" ]; then
-            CHANGELOG=$(git log --pretty=format:"- %s (%h)" HEAD)
-          else
-            CHANGELOG=$(git log --pretty=format:"- %s (%h)" "$PREV_TAG"..HEAD)
-          fi
-          echo "changelog<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$CHANGELOG" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
-        with:
-          name: v${{ steps.changelog.outputs.version }}
-          body: |
-            ## What's Changed
-            ${{ steps.changelog.outputs.changelog }}
+          DATE_TAG=$(date +'%Y-%m-%d')
+          echo "date_tag=${DATE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "release_name=Rules ${DATE_TAG}" >> "$GITHUB_OUTPUT"
 
-            ## Install
-            ```bash
-            pip install adfilter==${{ steps.changelog.outputs.version }}
-            ```
-          generate_release_notes: true
+      - name: Collect quality metrics for release body
+        id: metrics
+        run: |
+          # Extract stats from build-report.json
+          REPORT="build-report.json"
+          MANIFEST="manifest.json"
+
+          BODY="## 📊 Build Report\n\n"
+
+          if [ -f "$REPORT" ]; then
+            TOTAL_RULES=$(python3 -c "import json; d=json.load(open('$REPORT')); print(d.get('total_rules', 'N/A'))" 2>/dev/null || echo "N/A")
+            TIMESTAMP=$(python3 -c "import json; d=json.load(open('$REPORT')); print(d.get('timestamp', 'N/A'))" 2>/dev/null || echo "N/A")
+            BODY="${BODY}| Metric | Value |\n|--------|-------|\n"
+            BODY="${BODY}| Total Rules | ${TOTAL_RULES} |\n"
+            BODY="${BODY}| Build Time | ${TIMESTAMP} |\n"
+          fi
+
+          # File sizes table
+          BODY="${BODY}\n## 📂 Output Files\n\n"
+          BODY="${BODY}| File | Size | Lines |\n|------|------|-------|\n"
+          for f in *.txt *.conf *.yaml *.json *.rsc *.html; do
+            [ -f "$f" ] || continue
+            [ "$f" = "build-report.json" ] && continue
+            [ "$f" = "manifest.json" ] && continue
+            SIZE=$(du -h "$f" | cut -f1)
+            LINES=$(wc -l < "$f")
+            BODY="${BODY}| \`$f\` | ${SIZE} | ${LINES} |\n"
+          done
+
+          # Manifest integrity info
+          if [ -f "$MANIFEST" ]; then
+            FILE_COUNT=$(python3 -c "import json; d=json.load(open('$MANIFEST')); print(len(d.get('files', [])))" 2>/dev/null || echo "N/A")
+            BODY="${BODY}\n## 🔒 Build Integrity\n\n"
+            BODY="${BODY}| Property | Value |\n|----------|-------|\n"
+            BODY="${BODY}| Manifest Files | ${FILE_COUNT} |\n"
+            BODY="${BODY}| Git Commit | \`${{ github.event.workflow_run.head_sha || github.sha }}\` |\n"
+            BODY="${BODY}\n> Verify file integrity with \`manifest.json\` SHA-256 hashes.\n"
+          fi
+
+          BODY="${BODY}\n---\n\n"
+          BODY="${BODY}🔗 **Subscribe**: Use raw URLs from this release, e.g.:\n"
+          BODY="${BODY}\`\`\`\nhttps://github.com/${{ github.repository }}/releases/latest/download/dns.txt\n\`\`\`\n"
+
+          # Write body to file (multiline safe)
+          printf '%b' "$BODY" > /tmp/release_body.md
+
+      - name: Delete existing release for today (if re-running)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.tag.outputs.date_tag }}"
+          # Delete release if exists
+          gh release delete "$TAG" --yes 2>/dev/null || true
+          # Delete tag if exists
+          git tag -d "$TAG" 2>/dev/null || true
+          git push origin ":refs/tags/$TAG" 2>/dev/null || true
+
+      - name: Create GitHub Release with individual files
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.tag.outputs.date_tag }}"
+          TITLE="${{ steps.tag.outputs.release_name }}"
+
+          # Collect all rule files (exclude .git and README)
+          FILES=()
+          for f in *.txt *.conf *.yaml *.json *.rsc *.html; do
+            [ -f "$f" ] || continue
+            FILES+=("$f")
+          done
+
+          # Create release with all files attached individually
+          gh release create "$TAG" \
+            --title "$TITLE" \
+            --notes-file /tmp/release_body.md \
+            --latest \
+            "${FILES[@]}"
+
+          echo "✅ Published release: $TITLE with ${#FILES[@]} files"

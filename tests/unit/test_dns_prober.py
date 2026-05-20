@@ -82,9 +82,7 @@ class TestDnsProber:
         prober = DnsProber(prober_config)
         # Simulate a transient error (not NXDOMAIN)
         for resolver in prober._resolvers:
-            resolver.query = AsyncMock(
-                side_effect=aiodns.error.DNSError(99, "network unreachable")
-            )
+            resolver.query = AsyncMock(side_effect=aiodns.error.DNSError(99, "network unreachable"))
 
         result = await prober.lookup("flaky.example.com")
         assert result is True  # Conservative: assume exists

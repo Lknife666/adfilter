@@ -84,6 +84,7 @@ class TestI18n:
 class TestModuleLevelFunctions:
     def test_get_i18n_returns_instance(self):
         import adfilter.i18n as i18n_mod
+
         i18n_mod._default = None
         with patch.dict(os.environ, {}, clear=True):
             inst = get_i18n()
@@ -91,5 +92,6 @@ class TestModuleLevelFunctions:
 
     def test_t_function(self):
         import adfilter.i18n as i18n_mod
+
         i18n_mod._default = I18n(locale="en")
         assert t("build.started") == "Build started"
