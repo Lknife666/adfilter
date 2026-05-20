@@ -10,6 +10,18 @@ application:
           - name: anti-ad
             type: easylist
             path: https://anti-ad.net/easylist.txt
+          - name: adguard-dns
+            type: dns
+            path: https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt
+          - name: peter-lowe
+            type: hosts
+            path: https://pgl.yoyo.org/adservers/serverlist.php?hostformat=hosts&showintro=0&mimetype=plaintext
+          - name: urlhaus
+            type: hosts
+            path: https://urlhaus.abuse.ch/downloads/hostfile/
+          - name: phishing-army
+            type: easylist
+            path: https://phishing.army/download/phishing_army_blocklist.txt
 
     output:
       path: ./rule
@@ -20,7 +32,6 @@ application:
         Description: ${desc}
         Homepage: https://github.com/Lknife666/adfilter
       files:
-        # ── formats shared with the upstream Java project ──
         - { name: easylist.txt,   type: easylist, desc: "ADFS EasyList",
             filter: [basic, wildcard, unknown] }
         - { name: dns.txt,        type: dns,      desc: "AdGuard Home DNS filter",
@@ -33,8 +44,6 @@ application:
             filter: [basic, wildcard] }
         - { name: hosts.txt,      type: hosts,    desc: "/etc/hosts",
             filter: [basic] }
-
-        # ── differentiators — new formats adfilter adds on top ──
         - { name: surge.conf,     type: surge,    desc: "Surge domain-set",
             filter: [basic, wildcard] }
         - { name: singbox.json,   type: singbox,  desc: "sing-box rule-set",
@@ -46,22 +55,24 @@ application:
 
     fetcher:
       http:
-        timeout_seconds: 60
-        max_retries: 3
-        max_concurrency: 8       # feature #12
-        cache_dir: .cache/http   # feature #11 — conditional-GET cache
+        timeout_seconds: 120
+        max_retries: 2
+        max_concurrency: 4
+        cache_dir: .cache/http
+        on_failure: cache_then_skip
+        max_cache_age_hours: 72
 
     parser:
       alert_length: 6
       min_length: 4
       max_length: 1024
-      incremental_build: false   # feature #17
-      progress: false            # feature #18 — enable with --progress
-      json_logs: false           # feature #19 — enable with --json-logs
+      incremental_build: false
+      progress: false
+      json_logs: false
       dns_probe:
         enable: false
 
-    optimizer:                   # features #13–#16
+    optimizer:
       enable: true
       collapse_subdomains: true
       drop_allow_shadowed_deny: true

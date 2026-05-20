@@ -72,6 +72,7 @@ jobs:
         run: uv run adfilter validate --config config/application.yaml
 
       - name: Build rule lists
+        timeout-minutes: 10
         run: |
           uv run adfilter run \
             --config config/application.yaml \

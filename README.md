@@ -8,7 +8,7 @@
     <a href="https://github.com/Lknife666/adfilter/actions/workflows/ci.yml"><img src="https://github.com/Lknife666/adfilter/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
     <a href="https://github.com/Lknife666/adfilter/actions/workflows/auto-update.yml"><img src="https://github.com/Lknife666/adfilter/actions/workflows/auto-update.yml/badge.svg" alt="Auto Update"></a>
     <a href="https://github.com/Lknife666/adfilter/pkgs/container/adfilter"><img src="https://img.shields.io/badge/ghcr.io-adfilter-blue" alt="Docker"></a>
-    <a href="https://github.com/Lknife666/adfilter/blob/main/LICENSE"><img src="https://img.shields.io/github/license/Lknife666/adfilter" alt="License"></a>
+    <a href="https://github.com/Lknife666/adfilter/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="License"></a>
     <img src="https://img.shields.io/badge/python-3.14%2B-blue" alt="Python">
   </p>
 </p>
@@ -19,7 +19,7 @@
 
 > Rules are auto-generated every **8 hours** via GitHub Actions and published to the [`release`](https://github.com/Lknife666/adfilter/tree/release) branch.
 >
-> Last updated: ![Auto Update](https://github.com/Lknife666/adfilter/actions/workflows/auto-update.yml/badge.svg)
+> 🕐 Last updated: ![Auto Update](https://github.com/Lknife666/adfilter/actions/workflows/auto-update.yml/badge.svg) &nbsp; [![](https://img.shields.io/github/release-date/Lknife666/adfilter?label=release&color=blue)](https://github.com/Lknife666/adfilter/releases/latest)
 
 | Format | Application | Subscribe URL |
 |--------|-------------|---------------|
