@@ -1,0 +1,43 @@
+# Protected domains — these should NEVER be blocked.
+# Blocking any of these will trigger a critical audit alert.
+# One domain per line; lines starting with # are comments.
+
+# Search engines
+google.com
+bing.com
+baidu.com
+duckduckgo.com
+
+# Developer platforms
+github.com
+gitlab.com
+stackoverflow.com
+npmjs.com
+pypi.org
+
+# Cloud providers
+amazonaws.com
+cloudflare.com
+azure.com
+googleapis.com
+gstatic.com
+
+# OS updates
+windowsupdate.com
+apple.com
+download.microsoft.com
+ubuntu.com
+
+# CDN
+cdn.jsdelivr.net
+cdnjs.cloudflare.com
+unpkg.com
+fastly.net
+
+# Communication
+outlook.com
+gmail.com
+
+# Payment
+paypal.com
+stripe.com
