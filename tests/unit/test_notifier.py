@@ -38,8 +38,8 @@ class TestNotifyPayload:
         payload = NotifyPayload(success=True, report=report)
         summary = payload.summary()
         assert "1,800" in summary  # total rules
-        assert "2" in summary      # total files
-        assert "2500" in summary   # elapsed
+        assert "2" in summary  # total files
+        assert "2500" in summary  # elapsed
         assert "abcdef123456" in summary  # fingerprint truncated
 
     def test_success_summary_empty_outputs(self):
@@ -70,17 +70,20 @@ class TestNotifierRegistry:
     def test_builtin_telegram_registered(self):
         # Importing the notifier package triggers registration
         import adfilter.notifier  # noqa: F401
+
         cls = get_notifier_class("telegram")
         assert cls is not None
         assert issubclass(cls, Notifier)
 
     def test_builtin_discord_registered(self):
         import adfilter.notifier  # noqa: F401
+
         cls = get_notifier_class("discord")
         assert cls is not None
 
     def test_builtin_wecom_registered(self):
         import adfilter.notifier  # noqa: F401
+
         cls = get_notifier_class("wecom")
         assert cls is not None
 
@@ -95,7 +98,6 @@ class TestNotifierRegistry:
 
         register_notifier("custom_test", CustomNotifier)
         assert get_notifier_class("custom_test") is CustomNotifier
-
 
 
 class TestCreateNotifier:

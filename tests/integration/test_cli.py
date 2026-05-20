@@ -50,10 +50,18 @@ class TestConvertCommand:
         src.write_text("0.0.0.0 ads.example.com\n0.0.0.0 tracker.example.org\n")
         dst = tmp_path / "output.yaml"
 
-        result = runner.invoke(app, [
-            "convert", str(src), str(dst),
-            "--from", "hosts", "--to", "clash",
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "convert",
+                str(src),
+                str(dst),
+                "--from",
+                "hosts",
+                "--to",
+                "clash",
+            ],
+        )
         assert result.exit_code == 0
         assert "converted" in result.output
         assert dst.exists()
@@ -65,10 +73,18 @@ class TestConvertCommand:
         src.write_text("||ads.example.com^\n||tracker.example.org^\n")
         dst = tmp_path / "output.conf"
 
-        result = runner.invoke(app, [
-            "convert", str(src), str(dst),
-            "--from", "easylist", "--to", "dnsmasq",
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "convert",
+                str(src),
+                str(dst),
+                "--from",
+                "easylist",
+                "--to",
+                "dnsmasq",
+            ],
+        )
         assert result.exit_code == 0
         content = dst.read_text()
         assert "address=/" in content

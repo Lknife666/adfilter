@@ -35,8 +35,13 @@ class TestJsonFormatter:
     def test_format_basic_record(self):
         formatter = JsonFormatter()
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg="hello %s", args=("world",), exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="hello %s",
+            args=("world",),
+            exc_info=None,
         )
         output = formatter.format(record)
         data = json.loads(output)
@@ -48,8 +53,13 @@ class TestJsonFormatter:
     def test_format_with_context(self):
         formatter = JsonFormatter()
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg="msg", args=(), exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="msg",
+            args=(),
+            exc_info=None,
         )
         record._ctx_source = "anti-ad"  # type: ignore[attr-defined]
         output = formatter.format(record)

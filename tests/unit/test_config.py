@@ -36,10 +36,8 @@ class TestAppConfigFromYaml:
                     },
                     "output": {
                         "path": "./out",
-                        "files": [
-                            {"name": "dns.txt", "type": "dns", "desc": "test"}
-                        ]
-                    }
+                        "files": [{"name": "dns.txt", "type": "dns", "desc": "test"}],
+                    },
                 }
             }
         }
@@ -54,16 +52,7 @@ class TestAppConfigFromYaml:
             AppConfig.from_yaml("/nonexistent/config.yaml")
 
     def test_empty_outputs_raises(self, tmp_path):
-        config_data = {
-            "application": {
-                "config": {
-                    "output": {
-                        "path": "./out",
-                        "files": []
-                    }
-                }
-            }
-        }
+        config_data = {"application": {"config": {"output": {"path": "./out", "files": []}}}}
         config_file = tmp_path / "config.yaml"
         config_file.write_text(yaml.dump(config_data), encoding="utf-8")
         with pytest.raises(Exception):
