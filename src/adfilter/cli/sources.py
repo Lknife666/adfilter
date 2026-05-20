@@ -96,6 +96,54 @@ def cmd_sources(
         raise typer.Exit(code=1)
 
 
+@app.command(name="score")
+def cmd_score(
+    cache_dir: Annotated[Path, typer.Option("--cache-dir", help="Score cache directory")] = Path(".cache"),
+) -> None:
+    """Show quality scores for all tracked rule sources."""
+    from ..quality.source_scorer import SourceScorer
+
+    c = Console()
+    cache_file = cache_dir / "source_scores.json"
+    scorer = SourceScorer(cache_file=cache_file)
+    scores = scorer.get_scores()
+
+    if not scores:
+        c.print("[yellow]No score data found.[/yellow]")
+        c.print("Scores are computed during builds. Run `adfilter run` first.")
+        c.print(f"Cache file: {cache_file}")
+        raise typer.Exit(code=0)
+
+    t = Table(title="Source Quality Scores", show_header=True, header_style="bold cyan")
+    t.add_column("Source", style="bold")
+    t.add_column("Grade", justify="center")
+    t.add_column("Score", justify="right")
+    t.add_column("Avail", justify="right")
+    t.add_column("Fresh", justify="right")
+    t.add_column("Dead%", justify="right")
+    t.add_column("FP%", justify="right")
+    t.add_column("Uniq%", justify="right")
+
+    grade_colors = {"A": "green", "B": "blue", "C": "yellow", "D": "red", "F": "bold red"}
+
+    for source_id in sorted(scores.keys()):
+        s = scores[source_id]
+        color = grade_colors.get(s.grade, "white")
+        t.add_row(
+            source_id,
+            f"[{color}]{s.grade}[/{color}]",
+            f"{s.overall_score:.1f}",
+            f"{s.availability:.0%}",
+            f"{s.freshness:.0%}",
+            f"{s.dead_domain_ratio:.1%}",
+            f"{s.false_positive_rate:.1%}",
+            f"{s.unique_contribution:.0%}",
+        )
+
+    c.print(t)
+    c.print(f"\n[dim]Cache: {cache_file}[/dim]")
+
+
 @app.command(name="init")
 def cmd_init(
     preset: Annotated[str, typer.Option("--preset", "-p", help="Regional preset: cn, jp, global")] = "global",
