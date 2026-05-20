@@ -10,6 +10,18 @@ application:
           - name: anti-ad
             type: easylist
             path: https://anti-ad.net/easylist.txt
+          - name: adguard-dns
+            type: dns
+            path: https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt
+          - name: peter-lowe
+            type: hosts
+            path: https://pgl.yoyo.org/adservers/serverlist.php?hostformat=hosts&showintro=0&mimetype=plaintext
+          - name: urlhaus
+            type: hosts
+            path: https://urlhaus.abuse.ch/downloads/hostfile/
+          - name: phishing-army
+            type: easylist
+            path: https://phishing.army/download/phishing_army_blocklist.txt
 
     output:
       path: ./rule
@@ -46,9 +58,9 @@ application:
 
     fetcher:
       http:
-        timeout_seconds: 60
-        max_retries: 3
-        max_concurrency: 8       # feature #12
+        timeout_seconds: 120
+        max_retries: 2
+        max_concurrency: 4       # feature #12 — lower to avoid OOM on Actions
         cache_dir: .cache/http   # feature #11 — conditional-GET cache
 
     parser:
