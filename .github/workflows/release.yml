@@ -46,12 +46,89 @@ jobs:
             pyproject.toml
             config/protected_domains.txt
 
+      - name: Install adfilter from source
+        run: |
+          cd _src && uv sync --frozen --no-dev || uv sync --no-dev
+          cd ..
+
       - name: Determine release tag
         id: tag
         run: |
           DATE_TAG=$(date +'%Y-%m-%d')
           echo "date_tag=${DATE_TAG}" >> "$GITHUB_OUTPUT"
           echo "release_name=Rules ${DATE_TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Run rule-set benchmark
+        id: bench
+        timeout-minutes: 5
+        run: |
+          cd _src
+          BENCH_JSON=$(uv run adfilter bench --rule-dir "$GITHUB_WORKSPACE" --json --timeout 45 2>/dev/null || echo '{}')
+          cd ..
+
+          # Parse bench results
+          BENCH_SECTION=$(python3 -c "
+          import json, sys
+
+          raw = '''${BENCH_JSON}'''
+          try:
+              d = json.loads(raw)
+          except Exception:
+              print('')
+              sys.exit(0)
+
+          if not d or not d.get('baselines'):
+              print('')
+              sys.exit(0)
+
+          det = d.get('detection_rate', 0) * 100
+          fp = d.get('false_positive_rate', 0) * 100
+
+          # Grade detection
+          if det >= 90: det_grade = '🟢 Excellent'
+          elif det >= 75: det_grade = '🟢 Good'
+          elif det >= 60: det_grade = '🟡 Fair'
+          else: det_grade = '🔴 Needs Work'
+
+          # Grade FP
+          if fp <= 0.1: fp_grade = '🟢 Excellent'
+          elif fp <= 0.5: fp_grade = '🟢 Good'
+          elif fp <= 1.0: fp_grade = '🟡 Fair'
+          else: fp_grade = '🔴 Too High'
+
+          lines = []
+          lines.append('## 🎯 Rule Effectiveness (Bench)')
+          lines.append('')
+          lines.append(f'| Metric | Value | Grade |')
+          lines.append(f'|--------|-------|-------|')
+          lines.append(f'| Detection Rate | **{det:.1f}%** | {det_grade} |')
+          lines.append(f'| False Positive Rate | **{fp:.2f}%** | {fp_grade} |')
+          lines.append(f'| Rules Tested | {d.get(\"rule_count\", 0):,} | — |')
+          lines.append('')
+          lines.append('| Baseline | Type | Size | Matched | Rate |')
+          lines.append('|----------|------|------|---------|------|')
+          for b in d.get('baselines', []):
+              lines.append(f'| {b[\"name\"]} | {b[\"type\"]} | {b[\"size\"]:,} | {b[\"matched\"]:,} | {b[\"rate\"]*100:.1f}% |')
+
+          # Show FP samples if any
+          legit_hits = [b for b in d.get('baselines', []) if b['type'] == 'legit' and b.get('sample_matched')]
+          if legit_hits:
+              lines.append('')
+              lines.append('**⚠️ Potential over-blocks (legit domains blocked):**')
+              for b in legit_hits:
+                  samples = ', '.join(f'\`{s}\`' for s in b['sample_matched'][:5])
+                  lines.append(f'- {b[\"name\"]}: {samples}')
+
+          print('\\n'.join(lines))
+          " 2>/dev/null || echo "")
+
+          # Save for later injection into release body
+          if [ -n "$BENCH_SECTION" ]; then
+            printf '%s' "$BENCH_SECTION" > /tmp/bench_section.md
+            echo "has_bench=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_bench=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Collect quality metrics for release body
         id: metrics
@@ -77,6 +154,16 @@ jobs:
             BODY="${BODY}| Duration | ${ELAPSED} |\n"
 
             # Efficiency metrics from build-report sources
+            #
+            # Definitions:
+            #   effective = rules that parsed + deduplicated + (optionally) DNS-resolved OK
+            #   invalid   = rules that failed to parse / were empty / filtered by length
+            #   repeat    = cross-source duplicates (hash already seen from earlier source)
+            #   dead      = NXDOMAIN via DNS probe (0 when probe is disabled)
+            #
+            # raw_total = effective + invalid + repeat + dead
+            # efficiency_score = effective / raw_total
+            # bloat_ratio = (invalid + repeat + dead) / raw_total
             EFFECTIVE=$(python3 -c "
           import json
           d=json.load(open('$REPORT'))
@@ -84,18 +171,18 @@ jobs:
           eff=sum(s.get('effective',0) for s in sources)
           inv=sum(s.get('invalid',0) for s in sources)
           rep=sum(s.get('repeat',0) for s in sources)
-          total=eff if eff else 0
-          live=max(0, total-inv)
-          rate=live/total*100 if total else 0
-          bloat=(inv+rep)/(total+inv+rep)*100 if (total+inv+rep) else 0
-          eff_score=live/(total+inv+rep)*100 if (total+inv+rep) else 0
-          print(f'{total+inv+rep}|{live}|{inv}|{rep}|{rate:.1f}|{bloat:.1f}|{eff_score:.1f}')
-          " 2>/dev/null || echo "0|0|0|0|0|0|0")
+          dead=sum(s.get('dead',0) for s in sources)
+          raw=eff+inv+rep+dead
+          eff_score=eff/raw*100 if raw else 0
+          bloat=(inv+rep+dead)/raw*100 if raw else 0
+          liveness=eff/(eff+dead)*100 if (eff+dead) else 100
+          print(f'{raw}|{eff}|{inv}|{rep}|{dead}|{liveness:.1f}|{bloat:.1f}|{eff_score:.1f}')
+          " 2>/dev/null || echo "0|0|0|0|0|0|0|0")
 
-            IFS='|' read -r E_TOTAL E_LIVE E_DEAD E_REDUNDANT E_LIVENESS E_BLOAT E_SCORE <<< "$EFFECTIVE"
+            IFS='|' read -r E_RAW E_EFF E_INVALID E_REPEAT E_DEAD E_LIVENESS E_BLOAT E_SCORE <<< "$EFFECTIVE"
 
             BODY="${BODY}\n## ⚡ Rule Efficiency\n\n"
-            BODY="${BODY}| Metric | Value | Status |\n|--------|-------|--------|\n"
+            BODY="${BODY}| Metric | Value | Description |\n|--------|-------|-------------|\n"
 
             # Determine grade
             if (( $(echo "$E_SCORE >= 90" | bc -l 2>/dev/null || echo 0) )); then
@@ -109,11 +196,13 @@ jobs:
             fi
 
             BODY="${BODY}| Efficiency Score | **${E_SCORE}%** | ${GRADE} |\n"
-            BODY="${BODY}| Liveness Rate | ${E_LIVENESS}% | Live domains |\n"
-            BODY="${BODY}| Bloat Ratio | ${E_BLOAT}% | Dead + redundant |\n"
-            BODY="${BODY}| Live Domains | ${E_LIVE} | — |\n"
-            BODY="${BODY}| Dead/Invalid | ${E_DEAD} | Could be pruned |\n"
-            BODY="${BODY}| Redundant | ${E_REDUNDANT} | Covered by parent |\n"
+            BODY="${BODY}| Raw Input | ${E_RAW} | effective + invalid + repeat + dead |\n"
+            BODY="${BODY}| Effective | ${E_EFF} | Rules in final output |\n"
+            BODY="${BODY}| Invalid (parse) | ${E_INVALID} | Failed to parse or empty |\n"
+            BODY="${BODY}| Repeat (cross-src) | ${E_REPEAT} | Hash seen from earlier source |\n"
+            BODY="${BODY}| Dead (NXDOMAIN) | ${E_DEAD} | DNS probe failed (0 if probe off) |\n"
+            BODY="${BODY}| Liveness Rate | ${E_LIVENESS}% | effective / (effective + dead) |\n"
+            BODY="${BODY}| Bloat Ratio | ${E_BLOAT}% | (invalid + repeat + dead) / raw |\n"
           fi
 
           # Source quality summary
@@ -123,10 +212,10 @@ jobs:
           d=json.load(open('$REPORT'))
           sources=d.get('sources',[])
           if sources:
-              print('| Source | Effective | Invalid | Repeat | Elapsed |')
-              print('|--------|-----------|---------|--------|---------|')
+              print('| Source | Effective | Invalid | Repeat | Dead | Elapsed |')
+              print('|--------|-----------|---------|--------|------|---------|')
               for s in sources:
-                  print(f'| {s[\"name\"]} | {s.get(\"effective\",0)} | {s.get(\"invalid\",0)} | {s.get(\"repeat\",0)} | {s.get(\"elapsed_ms\",0)}ms |')
+                  print(f'| {s[\"name\"]} | {s.get(\"effective\",0)} | {s.get(\"invalid\",0)} | {s.get(\"repeat\",0)} | {s.get(\"dead\",0)} | {s.get(\"elapsed_ms\",0)}ms |')
           " 2>/dev/null || echo "")
 
             if [ -n "$SOURCE_TABLE" ]; then
@@ -158,6 +247,13 @@ jobs:
           fi
 
           BODY="${BODY}\n---\n\n"
+
+          # Inject bench results if available
+          if [ -f /tmp/bench_section.md ]; then
+            BENCH_CONTENT=$(cat /tmp/bench_section.md)
+            BODY="${BODY}${BENCH_CONTENT}\n\n---\n\n"
+          fi
+
           BODY="${BODY}🔗 **Subscribe**: Use raw URLs from this release, e.g.:\n"
           BODY="${BODY}\`\`\`\nhttps://github.com/${{ github.repository }}/releases/latest/download/dns.txt\n\`\`\`\n"
 

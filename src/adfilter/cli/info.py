@@ -41,7 +41,7 @@ def cmd_stats(
 
     if srcs := data.get("sources"):
         t = Table(title="sources")
-        for col in ("name", "total", "effective", "invalid", "repeat", "elapsed_ms"):
+        for col in ("name", "total", "effective", "invalid", "repeat", "dead", "elapsed_ms"):
             t.add_column(col)
         for s in srcs:
             t.add_row(
@@ -50,6 +50,7 @@ def cmd_stats(
                 str(s["effective"]),
                 str(s["invalid"]),
                 str(s["repeat"]),
+                str(s.get("dead", 0)),
                 str(s["elapsed_ms"]),
             )
         c.print(t)
@@ -140,48 +141,83 @@ def cmd_completion(
 
 
 def _show_efficiency(c: Console, data: dict, rule_dir: Path) -> None:
-    """Display efficiency metrics panel."""
+    """Display efficiency metrics panel.
+
+    Definitions (matching the build pipeline in ``parser.py``):
+
+    * ``effective`` — rules that parsed, were not duplicates, and (when
+      DNS-prober is enabled) resolved successfully. These are the rules
+      that actually ended up in the output files.
+    * ``invalid``   — rules that the handler could not parse, or that
+      were filtered out by length/exclude/empty checks.
+    * ``repeat``    — rules whose hash had already been emitted by an
+      earlier source. *Cross-source* duplicates, attributed to whichever
+      source happened to finish second; NOT internal duplicates.
+    * ``dead``      — rules whose target domain returned NXDOMAIN
+      during DNS probing. Always 0 unless ``parser.dns_probe.enable``
+      is true.
+
+    The denominator for percentages is the *raw input* size:
+    ``effective + invalid + repeat + dead``.
+    """
     from rich.panel import Panel
 
     from ..quality.efficiency import EfficiencyMetrics
 
-    # Gather data from build report
-    total_rules = data.get("total_rules", 0)
-    if not total_rules:
-        # Sum from sources
-        for src in data.get("sources", []):
-            total_rules += src.get("effective", 0)
+    sources = data.get("sources", [])
+    effective = sum(s.get("effective", 0) for s in sources)
+    invalid = sum(s.get("invalid", 0) for s in sources)
+    repeat = sum(s.get("repeat", 0) for s in sources)
+    dead = sum(s.get("dead", 0) for s in sources)
 
-    # Count redundant (repeat) rules
-    redundant = sum(src.get("repeat", 0) for src in data.get("sources", []))
-    invalid = sum(src.get("invalid", 0) for src in data.get("sources", []))
+    raw_total = effective + invalid + repeat + dead
+    has_dns_probe = dead > 0
 
-    # Estimate dead domains as invalid rules (best available proxy)
     metrics = EfficiencyMetrics(
-        total_rules=total_rules,
-        live_domains=max(0, total_rules - invalid),
-        dead_domains=invalid,
-        redundant_rules=redundant,
-        unique_rules=total_rules - redundant,
+        total_rules=raw_total,
+        live_domains=effective,  # only "effective" survived all checks
+        dead_domains=dead,  # NXDOMAIN, requires DNS probe
+        redundant_rules=repeat,  # cross-source duplicates
+        unique_rules=effective,
+        invalid_rules=invalid,  # parse failures
     )
 
     # Progress bar helper
     def bar(ratio: float, width: int = 20) -> str:
+        ratio = max(0.0, min(1.0, ratio))
         filled = int(ratio * width)
         return "█" * filled + "░" * (width - filled)
 
+    def pct(n: int) -> float:
+        return n / raw_total if raw_total else 0.0
+
     lines = [
-        f"  Total Rules:     [bold]{metrics.total_rules:,}[/bold]",
-        f"  Live Domains:    [green]{metrics.live_domains:,}[/green] ({metrics.liveness_rate:.1%})  {bar(metrics.liveness_rate)}",
-        f"  Dead Domains:    [red]{metrics.dead_domains:,}[/red] ({metrics.dead_domains / max(metrics.total_rules, 1):.1%})  {bar(metrics.dead_domains / max(metrics.total_rules, 1))}",
-        f"  Redundant:       [yellow]{metrics.redundant_rules:,}[/yellow] ({metrics.redundant_rules / max(metrics.total_rules, 1):.1%})  {bar(metrics.redundant_rules / max(metrics.total_rules, 1))}",
+        f"  Raw Input:        [bold]{raw_total:,}[/bold] (effective + invalid + repeat + dead)",
+        f"  Effective:        [green]{effective:,}[/green] ({pct(effective):.1%})  {bar(pct(effective))}",
+        f"  Invalid (parse):  [red]{invalid:,}[/red] ({pct(invalid):.1%})  {bar(pct(invalid))}",
+        f"  Repeat (x-src):   [yellow]{repeat:,}[/yellow] ({pct(repeat):.1%})  {bar(pct(repeat))}",
+    ]
+    if has_dns_probe:
+        lines.append(f"  Dead (NXDOMAIN):  [red]{dead:,}[/red] ({pct(dead):.1%})  {bar(pct(dead))}")
+    else:
+        lines.append("  Dead (NXDOMAIN):  [dim]not measured (enable parser.dns_probe to populate)[/dim]")
+
+    lines += [
         "",
         f"  Efficiency Score: [bold]{metrics.efficiency_score:.1%}[/bold]  {metrics.grade}",
-        f"  Bloat Ratio:      {metrics.bloat_ratio:.1%}",
+        f"  Bloat Ratio:      {metrics.bloat_ratio:.1%}  (invalid + repeat + dead) / raw",
     ]
 
-    if metrics.dead_domains > 0:
-        lines.append("")
-        lines.append(f"  [dim]💡 Tip: {metrics.dead_domains:,} dead/invalid rules could be pruned.[/dim]")
+    if invalid > 0:
+        lines.append(
+            f"  [dim]💡 {invalid:,} rules failed to parse — consider auditing the source format.[/dim]"
+        )
+    if repeat > 0:
+        lines.append(
+            f"  [dim]💡 {repeat:,} cross-source duplicates: a rule already emitted by an earlier "
+            "source. Order-dependent; not an indictment of any single source.[/dim]"
+        )
+    if has_dns_probe and dead > 0:
+        lines.append(f"  [dim]💡 {dead:,} dead domains could be pruned from upstream sources.[/dim]")
 
     c.print(Panel("\n".join(lines), title="Rule Efficiency Report", border_style="cyan"))

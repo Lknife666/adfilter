@@ -8,7 +8,9 @@ from adfilter.quality.efficiency import EfficiencyMetrics
 class TestEfficiencyMetrics:
     def test_empty(self):
         m = EfficiencyMetrics()
-        assert m.liveness_rate == 0.0
+        # When both live and dead are 0, liveness returns 1.0
+        # (no evidence of dead domains = assume all alive)
+        assert m.liveness_rate == 1.0
         assert m.efficiency_score == 0.0
         assert m.bloat_ratio == 0.0
 
@@ -33,10 +35,13 @@ class TestEfficiencyMetrics:
             redundant_rules=400,
             unique_rules=9600,
         )
-        assert abs(m.liveness_rate - 0.9) < 0.001
+        # liveness = live / (live + dead) = 9000 / 9600 = 0.9375
+        assert abs(m.liveness_rate - 9000 / 9600) < 0.001
+        # bloat = (invalid + redundant + dead) / total = (0 + 400 + 600) / 10000 = 0.1
         assert abs(m.bloat_ratio - 0.1) < 0.001
-        assert m.efficiency_score > 0.8
-        assert m.grade in ("Excellent", "Good")
+        # efficiency = live / total = 9000 / 10000 = 0.9
+        assert abs(m.efficiency_score - 0.9) < 0.001
+        assert m.grade == "Excellent"
 
     def test_poor(self):
         m = EfficiencyMetrics(
@@ -46,9 +51,12 @@ class TestEfficiencyMetrics:
             redundant_rules=200,
             unique_rules=800,
         )
-        assert m.liveness_rate == 0.3
-        assert m.bloat_ratio == 0.7
-        assert m.efficiency_score == 0.1
+        # liveness = 300 / (300 + 500) = 0.375
+        assert abs(m.liveness_rate - 0.375) < 0.001
+        # bloat = (0 + 200 + 500) / 1000 = 0.7
+        assert abs(m.bloat_ratio - 0.7) < 0.001
+        # efficiency = 300 / 1000 = 0.3 (below 0.40 threshold → Critical)
+        assert abs(m.efficiency_score - 0.3) < 0.001
         assert m.grade == "Critical"
 
     def test_to_dict(self):
