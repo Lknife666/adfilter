@@ -37,7 +37,7 @@ class UnboundHandler(Handler):
             if not parts:
                 return Rule.empty()
             domain = parts[0].strip('"').rstrip(".")
-        except (IndexError, ValueError):
+        except IndexError, ValueError:
             return Rule.empty()
         detected = detect_base_rule(domain)
         if detected is None:

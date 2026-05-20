@@ -137,7 +137,7 @@ class PagesGenerator:
                 "file_count": data.get("file_count", len(FORMAT_INFO)),
                 "last_updated": data.get("timestamp", "N/A"),
             }
-        except (json.JSONDecodeError, OSError):
+        except json.JSONDecodeError, OSError:
             return {}
 
     def _build_table_rows(self) -> str:

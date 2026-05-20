@@ -57,9 +57,7 @@ def cmd_serve(
             # Create temp dir on SAME filesystem as directory (avoids EXDEV)
             import tempfile
 
-            tmp_dir = Path(
-                tempfile.mkdtemp(prefix="adfilter-serve-", dir=str(directory.parent))
-            )
+            tmp_dir = Path(tempfile.mkdtemp(prefix="adfilter-serve-", dir=str(directory.parent)))
             cfg.output.path = str(tmp_dir)
             asyncio.run(_run(cfg, report_path=None))
 

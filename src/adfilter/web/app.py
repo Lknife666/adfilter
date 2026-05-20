@@ -117,7 +117,7 @@ def _gather_stats(rule_dir: Path) -> dict:
             data = json.loads(report_path.read_text(encoding="utf-8"))
             stats["last_updated"] = data.get("timestamp", "unknown")
             stats["total_rules"] = data.get("total_rules", 0)
-        except (json.JSONDecodeError, OSError):
+        except json.JSONDecodeError, OSError:
             pass
 
     for f in rule_dir.iterdir():

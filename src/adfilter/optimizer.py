@@ -42,7 +42,7 @@ def normalize_idn(target: str) -> str:
         return target.lower()
     try:
         return target.encode("idna").decode("ascii").lower()
-    except (UnicodeError, ValueError):
+    except UnicodeError, ValueError:
         return target.lower()
 
 

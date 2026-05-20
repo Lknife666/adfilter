@@ -59,7 +59,7 @@ class DeadDomainDetector:
                     timeout=self.timeout,
                 )
                 return DomainCheckResult(domain=domain, is_dead=False)
-            except (socket.gaierror, OSError):
+            except socket.gaierror, OSError:
                 return DomainCheckResult(domain=domain, is_dead=True, reason="NXDOMAIN")
             except TimeoutError:
                 return DomainCheckResult(domain=domain, is_dead=True, reason="timeout")
