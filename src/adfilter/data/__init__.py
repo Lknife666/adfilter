@@ -19,8 +19,7 @@ def load_source_catalog() -> dict:
     if not catalog_path.exists():
         return {"sources": []}
     with catalog_path.open("r", encoding="utf-8") as f:
-        data = yaml.safe_load(f) or {}
-    return data
+        return yaml.safe_load(f) or {}
 
 
 def load_preset(preset_name: str) -> dict:

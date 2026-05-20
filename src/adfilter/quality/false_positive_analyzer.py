@@ -7,7 +7,7 @@ false positives in the rule set.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 log = logging.getLogger(__name__)
 
@@ -110,10 +110,7 @@ class FalsePositiveAnalyzer:
         if domain in self.popular_domains:
             return True
         # Check if this is blocking a parent of a popular domain
-        for popular in self.popular_domains:
-            if popular.endswith(f".{domain}"):
-                return True
-        return False
+        return any(popular.endswith(f".{domain}") for popular in self.popular_domains)
 
     @property
     def high_confidence_hits(self) -> list[FalsePositiveHit]:

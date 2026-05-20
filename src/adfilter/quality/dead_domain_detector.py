@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import socket
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 log = logging.getLogger(__name__)
 
@@ -65,7 +65,7 @@ class DeadDomainDetector:
                 return DomainCheckResult(
                     domain=domain, is_dead=True, reason="NXDOMAIN"
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 return DomainCheckResult(
                     domain=domain, is_dead=True, reason="timeout"
                 )

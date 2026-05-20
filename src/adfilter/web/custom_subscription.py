@@ -9,7 +9,6 @@ from __future__ import annotations
 import hashlib
 import logging
 from dataclasses import dataclass, field
-from urllib.parse import urlencode
 
 log = logging.getLogger(__name__)
 
@@ -132,7 +131,7 @@ class CustomSubscriptionBuilder:
 
         for source in config.sources:
             lines.append(f"          - name: {source}")
-            lines.append(f"            type: easylist")
+            lines.append("            type: easylist")
             lines.append(f"            path: # Add URL for {source}")
 
         lines.extend([
