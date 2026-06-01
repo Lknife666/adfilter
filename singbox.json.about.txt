@@ -1,0 +1,5 @@
+// ADFS AdBlock singbox
+// Last Modified: 2026-06-01 12:18:02
+// Total Size: 332898
+// Description: sing-box rule-set
+// Homepage: https://github.com/Lknife666/adfilter

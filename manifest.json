@@ -1,0 +1,81 @@
+{
+  "build_time": "2026-06-01T04:18:04.156959+00:00",
+  "git_commit": "6bfa4762148882c964a575d750d4852400a5e29e",
+  "adfilter_version": "1.0.0",
+  "sources_fetched": 5,
+  "audit_alerts": 0,
+  "files": [
+    {
+      "name": "clash.yaml",
+      "sha256": "dd208584694376fe2f0e3ecd2ae5e9b627516e09b680bd6cff711fea24a0afc0",
+      "size": 9169316,
+      "line_count": 332904
+    },
+    {
+      "name": "dns.txt",
+      "sha256": "4e9ffffd9a86166bcd03791ff2e3ae9579148512b9d15cde94a3afff71251a8a",
+      "size": 7369370,
+      "line_count": 333281
+    },
+    {
+      "name": "dnsmasq.conf",
+      "sha256": "a98ec3ed95de6e22d4223f07143d8941556c0bb3ebca2e69452ee5a1f2ebbdb4",
+      "size": 12457110,
+      "line_count": 332903
+    },
+    {
+      "name": "easylist.txt",
+      "sha256": "d8dd1f8742da1e9fcb57f14d05fc4506de0a58829b80c8321e7e3b0542a432f2",
+      "size": 7363825,
+      "line_count": 333041
+    },
+    {
+      "name": "hosts.txt",
+      "sha256": "b9bf12935b06b0f7d4835bfc5e9a7ed52bb2a0c00023b8824635cba1e391d98c",
+      "size": 9446772,
+      "line_count": 332390
+    },
+    {
+      "name": "index.html",
+      "sha256": "d2f4ceb07c80f8caca808c12c6cf6280f979f144862607c75ce964d4bf699d1e",
+      "size": 4841,
+      "line_count": 61
+    },
+    {
+      "name": "mikrotik.rsc",
+      "sha256": "4fd84d27c6b6674ea086da8bbe963e3c05b4473758181afd1661944bea60e4d6",
+      "size": 23731281,
+      "line_count": 332276
+    },
+    {
+      "name": "singbox.json",
+      "sha256": "6046a194bf2918802c244c5fc68e4b39c4d085bf596cefe19284670564792c1d",
+      "size": 10459669,
+      "line_count": 332911
+    },
+    {
+      "name": "singbox.json.about.txt",
+      "sha256": "4c3bf96aa68cde9a77d8d5ef209f03e9aa943134a0495990f829a8294da5a1bc",
+      "size": 173,
+      "line_count": 5
+    },
+    {
+      "name": "smartdns.conf",
+      "sha256": "823208d19ab452a82801bcc94ec4ba3fd415b8f35e982cf8f70539ab315be497",
+      "size": 10736075,
+      "line_count": 332404
+    },
+    {
+      "name": "surge.conf",
+      "sha256": "715ae720baa299036dc939792babfe4169f85b38afb22379c2abaf670010eb8c",
+      "size": 6984879,
+      "line_count": 332903
+    },
+    {
+      "name": "unbound.conf",
+      "sha256": "91f096d5ad2f7621c43747e048918d4ba955e75ab41f69a8aeefa6e8a37ce391",
+      "size": 18449279,
+      "line_count": 332904
+    }
+  ]
+}

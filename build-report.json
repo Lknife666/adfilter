@@ -1,0 +1,128 @@
+{
+  "started_at": "2026-06-01T04:16:17.164982+00:00",
+  "finished_at": "2026-06-01T04:18:03.236098+00:00",
+  "elapsed_ms": 106070,
+  "fingerprint": "206a7754893e11be6f37854bfe486ba7986dad73405e687a13b38365ed8a0c9b",
+  "incremental_skip": false,
+  "sources": [
+    {
+      "name": "urlhaus",
+      "total": 432,
+      "effective": 432,
+      "invalid": 0,
+      "repeat": 0,
+      "dead": 0,
+      "elapsed_ms": 79
+    },
+    {
+      "name": "phishing-army",
+      "total": 143407,
+      "effective": 143396,
+      "invalid": 0,
+      "repeat": 11,
+      "dead": 0,
+      "elapsed_ms": 98751
+    },
+    {
+      "name": "peter-lowe",
+      "total": 3508,
+      "effective": 2218,
+      "invalid": 1,
+      "repeat": 1289,
+      "dead": 0,
+      "elapsed_ms": 1782
+    },
+    {
+      "name": "anti-ad",
+      "total": 101017,
+      "effective": 48645,
+      "invalid": 0,
+      "repeat": 52372,
+      "dead": 0,
+      "elapsed_ms": 97592
+    },
+    {
+      "name": "adguard-dns",
+      "total": 165329,
+      "effective": 139973,
+      "invalid": 0,
+      "repeat": 25356,
+      "dead": 0,
+      "elapsed_ms": 97491
+    }
+  ],
+  "outputs": [
+    {
+      "name": "mikrotik.rsc",
+      "type": "mikrotik",
+      "count": 332270,
+      "bytes": 23731281,
+      "path": "/home/runner/work/adfilter/adfilter/rule/mikrotik.rsc"
+    },
+    {
+      "name": "unbound.conf",
+      "type": "unbound",
+      "count": 332898,
+      "bytes": 18449279,
+      "path": "/home/runner/work/adfilter/adfilter/rule/unbound.conf"
+    },
+    {
+      "name": "dnsmasq.conf",
+      "type": "dnsmasq",
+      "count": 332898,
+      "bytes": 12457110,
+      "path": "/home/runner/work/adfilter/adfilter/rule/dnsmasq.conf"
+    },
+    {
+      "name": "easylist.txt",
+      "type": "easylist",
+      "count": 333036,
+      "bytes": 7363825,
+      "path": "/home/runner/work/adfilter/adfilter/rule/easylist.txt"
+    },
+    {
+      "name": "dns.txt",
+      "type": "dns",
+      "count": 333276,
+      "bytes": 7369370,
+      "path": "/home/runner/work/adfilter/adfilter/rule/dns.txt"
+    },
+    {
+      "name": "hosts.txt",
+      "type": "hosts",
+      "count": 332385,
+      "bytes": 9446772,
+      "path": "/home/runner/work/adfilter/adfilter/rule/hosts.txt"
+    },
+    {
+      "name": "smartdns.conf",
+      "type": "smartdns",
+      "count": 332399,
+      "bytes": 10736075,
+      "path": "/home/runner/work/adfilter/adfilter/rule/smartdns.conf"
+    },
+    {
+      "name": "clash.yaml",
+      "type": "clash",
+      "count": 332898,
+      "bytes": 9169316,
+      "path": "/home/runner/work/adfilter/adfilter/rule/clash.yaml"
+    },
+    {
+      "name": "singbox.json",
+      "type": "singbox",
+      "count": 332898,
+      "bytes": 10459669,
+      "path": "/home/runner/work/adfilter/adfilter/rule/singbox.json"
+    },
+    {
+      "name": "surge.conf",
+      "type": "surge",
+      "count": 332898,
+      "bytes": 6984879,
+      "path": "/home/runner/work/adfilter/adfilter/rule/surge.conf"
+    }
+  ],
+  "total_rules": 334664,
+  "timestamp": "2026-06-01T04:18:03.236098+00:00"
+}
